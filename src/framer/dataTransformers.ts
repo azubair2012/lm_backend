@@ -4,11 +4,72 @@
  */
 
 import { PropertyAdvertising, PropertyMedia, FramerProperty, FramerImage, FramerImageSet } from '../types';
+import { RentmanApiClient } from '../client/RentmanApiClient';
 
 /**
  * Transform property data for Framer consumption
  */
-export function transformPropertyForFramer(property: PropertyAdvertising): FramerProperty {
+export async function transformPropertyForFramer(
+  property: PropertyAdvertising, 
+  client?: RentmanApiClient
+): Promise<FramerProperty> {
+  const baseProperty: FramerProperty = {
+    id: property.propref,
+    address: property.displayaddress,
+    price: property.displayprice,
+    rentMonth: parseFloat(property.rentmonth) || 0,
+    type: property.TYPE,
+    beds: parseInt(property.beds) || 0,
+    singles: parseInt(property.singles) || 0,
+    doubles: parseInt(property.doubles) || 0,
+    baths: parseInt(property.baths) || 0,
+    receptions: parseInt(property.receps) || 0,
+    furnished: property.furnished,
+    heating: property.heating,
+    available: property.available,
+    status: property.STATUS,
+    rating: parseInt(property.rating) || 0,
+    age: property.age,
+    description: property.DESCRIPTION,
+    strapline: property.strapline,
+    postcode: property.postcode,
+    area: property.area,
+    url: property.url,
+    images: {
+      main: createImageSet(property.photo1),
+      floorplan: property.floorplan ? createImageSet(property.floorplan) : undefined,
+      gallery: [] // Will be populated below if client is provided
+    }
+  };
+
+  // If client is provided, fetch additional media (with timeout protection)
+  if (client) {
+    try {
+      // Set a shorter timeout for media fetching to prevent overall timeout
+      const mediaResponse = await Promise.race([
+        client.getPropertyMedia({ propref: property.propref }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Media fetch timeout')), 5000)
+        )
+      ]) as any;
+      
+      if (mediaResponse.data.length > 0) {
+        baseProperty.images.gallery = mediaResponse.data.map(transformMediaForFramer);
+        console.log(`Fetched ${mediaResponse.data.length} gallery images for property ${property.propref}`);
+      }
+    } catch (error) {
+      console.warn(`Failed to fetch media for property ${property.propref}:`, error);
+      // Continue without gallery images if media fetch fails
+    }
+  }
+
+  return baseProperty;
+}
+
+/**
+ * Transform property data for Framer consumption (synchronous version without media fetching)
+ */
+export function transformPropertyForFramerSync(property: PropertyAdvertising): FramerProperty {
   return {
     id: property.propref,
     address: property.displayaddress,
@@ -34,7 +95,7 @@ export function transformPropertyForFramer(property: PropertyAdvertising): Frame
     images: {
       main: createImageSet(property.photo1),
       floorplan: property.floorplan ? createImageSet(property.floorplan) : undefined,
-      gallery: [] // Will be populated separately from media endpoint
+      gallery: [] // Empty gallery for performance
     }
   };
 }

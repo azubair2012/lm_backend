@@ -95,6 +95,5 @@ ehthumbs.db
 Thumbs.db
 
 # Image cache
-public/images/
-public/images/cache/
+
 uploads/

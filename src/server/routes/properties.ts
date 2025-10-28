@@ -6,7 +6,7 @@
 import { Router, Request, Response } from 'express';
 import { RentmanApiClient } from '../../client/RentmanApiClient';
 import { FramerProperty, FramerApiResponse, FramerSearchResponse } from '../../types';
-import { transformPropertyForFramer, transformMediaForFramer } from '../../framer/dataTransformers';
+import { transformPropertyForFramer, transformPropertyForFramerSync, transformMediaForFramer } from '../../framer/dataTransformers';
 
 export default function propertyRoutes(client: RentmanApiClient): Router {
   const router = Router();
@@ -37,8 +37,22 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
 
       const response = await client.getPropertyAdvertising(params);
       
-      // Transform properties for Framer
-      const framerProperties: FramerProperty[] = response.data.map(transformPropertyForFramer);
+      // Transform properties for Framer with media fetching (limit to first 10 for performance)
+      const propertiesToProcess = response.data.slice(0, 10);
+      const remainingProperties = response.data.slice(10);
+      
+      const framerPropertiesWithMedia: FramerProperty[] = await Promise.all(
+        propertiesToProcess.map(async (property) => {
+          return await transformPropertyForFramer(property, client);
+        })
+      );
+      
+      // Transform remaining properties without media fetching for now
+      const framerPropertiesWithoutMedia: FramerProperty[] = remainingProperties.map(property => 
+        transformPropertyForFramerSync(property)
+      );
+      
+      const framerProperties = [...framerPropertiesWithMedia, ...framerPropertiesWithoutMedia];
 
       const framerResponse: FramerApiResponse<FramerProperty[]> = {
         success: true,
@@ -82,8 +96,8 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
         });
       }
 
-      // Transform property for Framer
-      const framerProperty = transformPropertyForFramer(response.data[0]);
+      // Transform property for Framer with media fetching
+      const framerProperty = await transformPropertyForFramer(response.data[0], client);
 
       const framerResponse: FramerApiResponse<FramerProperty> = {
         success: true,
@@ -114,8 +128,12 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
 
       const properties = await client.getFeaturedProperties(parseInt(limit as string));
       
-      // Transform properties for Framer
-      const framerProperties: FramerProperty[] = properties.map(transformPropertyForFramer);
+      // Transform properties for Framer with media fetching
+      const framerProperties: FramerProperty[] = await Promise.all(
+        properties.map(async (property) => {
+          return await transformPropertyForFramer(property, client);
+        })
+      );
 
       const framerResponse: FramerApiResponse<FramerProperty[]> = {
         success: true,
@@ -195,8 +213,12 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
         });
       }
 
-      // Transform properties for Framer
-      const framerProperties: FramerProperty[] = filteredProperties.map(transformPropertyForFramer);
+      // Transform properties for Framer with media fetching
+      const framerProperties: FramerProperty[] = await Promise.all(
+        filteredProperties.map(async (property) => {
+          return await transformPropertyForFramer(property, client);
+        })
+      );
 
       // Calculate pagination
       const totalPages = Math.ceil(framerProperties.length / parseInt(limit as string));
