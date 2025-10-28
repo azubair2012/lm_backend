@@ -1,0 +1,104 @@
+API Endpoints
+1. Property Advertising
+Endpoint: https://www.rentman.online/propertyadvertising.php
+
+Method: GET
+
+Required Header:
+
+token: Company-specific token (issued by Rentman support)
+
+Optional Headers/Query Params:
+
+ACCEPT: Set to application/xml for XML, otherwise JSON is default
+
+propref: Limits results to property by reference (e.g., 123)
+
+noimage: Set to 1 to omit image binary data
+
+rob: Set to rent (lettings) or sale (sales)
+
+featured: Set to 1 for featured properties only
+
+area: Set to 1 for postcodes/areas per property
+
+limit: Integer, limits number of results
+
+page: Pagination (starts at 1). Works with limit. Default: 25
+
+2. Property Media
+Endpoint: https://www.rentman.online/propertymedia.php
+
+Method: GET
+
+Required Header:
+
+token
+
+One of:
+
+propref: All media for a specific property
+
+filename: Specific media file
+
+Optional Headers/Query Params:
+
+ACCEPT: Set to application/base64 for base64 binary only (use with filename query)
+
+Authentication
+Every request must include a token header.
+
+Token is company-specific and provided by Rentman support.
+
+JSON Response Structure (Schemas)
+Propertyadvertising Example Schema:
+json
+[
+  {
+    "propref": "2",
+    "displayaddress": "2 SS17 street, Horndon-on-the-hill",
+    "displayprice": "30,007 pcm Holiday Let 45 pd",
+    "rentmonth": "30007.00",
+    "rentorbuy": "1",
+    "number": "2",
+    "street": "SS17 street",
+    "address3": "Horndon-On-The-Hill",
+    "address4": "Stanford-Le-Hope",
+    "postcode": "SS17 8QE",
+    "area": "Horndon-on-the-hill",
+    "TYPE": "Semi Detached House",
+    "beds": "4",
+    "singles": "1",
+    "doubles": "3",
+    "baths": "1",
+    "receps": "1",
+    "furnished": "4",
+    "bullets": "Semi Detached House4 Beds1 Reception1 Bathroom Rating B Tax Band C or Unfurnished",
+    "FLOOR": "HSE",
+    "heating": "GCH",
+    "available": "2020-02-25",
+    "STATUS": "Under Offer",
+    "shortlet": "0001",
+    "rating": "4",
+    "age": "Brand New",
+    "DESCRIPTION": "A hugely spacious, four bedroom Victorian semi-detached...",
+    "comments": "A hugely spacious, four bedroom Victorian semi-detached...",
+    "strapline": "Large 4 Bedroom Detached House",
+    "floorplan": "D13FAB05-D361-4F0C-8EE2-4615BEF7F6DA.jpg",
+    "url": "www.dotgomm.co.uk",
+    "photo1": "B1FA163D-2CBD-4C34-AEC7-F6BDB24A814F.jpg"
+    // ... more fields as needed
+  }
+]
+Propertymedia Example Schema:
+json
+[
+  {
+    "propref": "2",
+    "filename": "B1FA163D-2CBD-4C34-AEC7-F6BDB24A814F.jpg",
+    "caption": "Bedroom 1",
+    "base64data": "base64...",
+    "imgorder": "3"
+    // Additional images or media files listed as objects in the array
+  }
+]
