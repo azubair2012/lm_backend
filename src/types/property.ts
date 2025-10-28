@@ -59,12 +59,14 @@ export interface PropertyAdvertisingParams {
 export interface PropertyMediaParams {
   propref?: string;
   filename?: string;
+  mediaId?: string;
 }
 
 export interface ApiResponse<T> {
   data: T;
-  status: number;
-  statusText: string;
+  status?: number;
+  statusText?: string;
   success: boolean;
   message?: string;
+  timestamp?: string;
 }

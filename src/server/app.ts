@@ -1,6 +1,6 @@
 /**
  * Express.js Application Setup
- * Main server configuration for Framer-optimized API endpoints
+ * Main server configuration for API endpoints
  */
 
 import express from 'express';
@@ -72,7 +72,7 @@ export class RentmanServer {
     // Request ID middleware
     this.app.use(requestIdMiddleware);
 
-    // CORS configuration for Framer
+    // CORS configuration
     this.app.use(cors({
       origin: config.server.corsOrigin,
       credentials: true,
@@ -223,8 +223,7 @@ export class RentmanServer {
           images: '/api/images'
         },
         documentation: {
-          api: '/docs/api-reference',
-          framer: '/docs/framer-integration'
+          api: '/docs/api-reference'
         },
         timestamp: new Date().toISOString()
       });

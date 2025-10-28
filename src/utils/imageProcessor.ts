@@ -1,6 +1,6 @@
 /**
  * Image Processing Utilities
- * Handle image optimization and multiple size generation for Framer
+ * Handle image optimization and multiple size generation
  */
 
 import sharp from 'sharp';

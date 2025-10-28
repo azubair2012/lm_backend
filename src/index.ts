@@ -1,6 +1,6 @@
 /**
  * Main Entry Point
- * Rentman API Client with Framer-optimized REST endpoints
+ * Rentman API Client with REST endpoints
  */
 
 import { RentmanServer } from './server/app';

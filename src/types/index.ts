@@ -6,8 +6,6 @@
 // Property types
 export * from './property';
 
-// Framer types
-export * from './framer';
 
 // API types
 export * from './api';
@@ -21,14 +19,6 @@ export type {
   ApiResponse
 } from './property';
 
-export type {
-  FramerProperty,
-  FramerImage,
-  FramerImageSet,
-  FramerSearchParams,
-  FramerSearchResponse,
-  FramerApiResponse
-} from './framer';
 
 export type {
   RentmanApiConfig,

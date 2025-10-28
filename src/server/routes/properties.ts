@@ -1,20 +1,18 @@
 /**
  * Properties Routes
- * Framer-optimized endpoints for property data
+ * API endpoints for property data
  */
 
 import { Router, Request, Response } from 'express';
 import { RentmanApiClient } from '../../client/RentmanApiClient';
-import { FramerProperty, FramerApiResponse, FramerSearchResponse } from '../../types';
-import { transformPropertyForFramer, transformPropertyForFramerSync, transformMediaForFramer } from '../../framer/dataTransformers';
-import { FramerImage } from '../../types';
+import { PropertyAdvertising, PropertyMedia, ApiResponse } from '../../types';
 
 export default function propertyRoutes(client: RentmanApiClient): Router {
   const router = Router();
 
   /**
    * GET /api/properties
-   * Get all properties with Framer-optimized format
+   * Get all properties
    */
   router.get('/', async (req: Request, res: Response) => {
     try {
@@ -38,19 +36,15 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
 
       const response = await client.getPropertyAdvertising(params);
       
-      // Transform properties for Framer (sync version for fast loading)
-      const framerProperties: FramerProperty[] = response.data.map(property => 
-        transformPropertyForFramerSync(property)
-      );
-
-      const framerResponse: FramerApiResponse<FramerProperty[]> = {
+      const apiResponse: ApiResponse<PropertyAdvertising[]> = {
         success: true,
-        data: framerProperties,
-        message: `Found ${framerProperties.length} properties`,
+        data: response.data,
+        message: `Found ${response.data.length} properties`,
         timestamp: new Date().toISOString()
       };
 
-      res.json(framerResponse);
+      res.json(apiResponse);
+      
     } catch (error) {
       console.error('Error fetching properties:', error);
       res.status(500).json({
@@ -124,23 +118,33 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
         });
       }
 
-      // Transform properties for Framer (sync version for performance)
-      const framerProperties: FramerProperty[] = filteredProperties.map(property => 
-        transformPropertyForFramerSync(property)
-      );
-
-      // Calculate pagination
-      const totalPages = Math.ceil(framerProperties.length / parseInt(limit as string));
+      const total = filteredProperties.length;
+      const totalPages = Math.ceil(total / parseInt(limit as string));
       const currentPage = parseInt(page as string);
 
-      const searchResponse: FramerApiResponse<FramerSearchResponse> = {
+      const searchResponse: ApiResponse<{
+        properties: PropertyAdvertising[];
+        pagination: {
+          page: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+          hasNext: boolean;
+          hasPrev: boolean;
+        };
+        filters: {
+          areas: string[];
+          types: string[];
+          priceRange: { min: number; max: number };
+        };
+      }> = {
         success: true,
         data: {
-          properties: framerProperties,
+          properties: filteredProperties,
           pagination: {
             page: currentPage,
             limit: parseInt(limit as string),
-            total: framerProperties.length,
+            total: total,
             totalPages,
             hasNext: currentPage < totalPages,
             hasPrev: currentPage > 1
@@ -154,10 +158,9 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
             }
           }
         },
-        message: `Found ${framerProperties.length} properties matching search criteria`,
+        message: `Found ${filteredProperties.length} properties matching search criteria`,
         timestamp: new Date().toISOString()
       };
-
       res.json(searchResponse);
     } catch (error) {
       console.error('Error searching properties:', error);
@@ -165,19 +168,8 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
         success: false,
         data: {
           properties: [],
-          pagination: {
-            page: 1,
-            limit: 25,
-            total: 0,
-            totalPages: 0,
-            hasNext: false,
-            hasPrev: false
-          },
-          filters: {
-            areas: [],
-            types: [],
-            priceRange: { min: 0, max: 0 }
-          }
+          pagination: { page: 1, limit: 25, total: 0, totalPages: 0, hasNext: false, hasPrev: false },
+          filters: { areas: [], types: [], priceRange: { min: 0, max: 0 } }
         },
         message: 'Failed to search properties',
         timestamp: new Date().toISOString()
@@ -195,19 +187,14 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
 
       const properties = await client.getFeaturedProperties(parseInt(limit as string));
       
-      // Transform properties for Framer (sync version for performance)
-      const framerProperties: FramerProperty[] = properties.map(property => 
-        transformPropertyForFramerSync(property)
-      );
-
-      const framerResponse: FramerApiResponse<FramerProperty[]> = {
+      const apiResponse: ApiResponse<PropertyAdvertising[]> = {
         success: true,
-        data: framerProperties,
-        message: `Found ${framerProperties.length} featured properties`,
+        data: properties,
+        message: `Found ${properties.length} featured properties`,
         timestamp: new Date().toISOString()
       };
 
-      res.json(framerResponse);
+      res.json(apiResponse);
     } catch (error) {
       console.error('Error fetching featured properties:', error);
       res.status(500).json({
@@ -221,13 +208,13 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
 
   /**
    * GET /api/properties/:id
-   * Get specific property by ID
+   * Get a specific property by ID
    */
-  router.get('/:id', async (req: Request, res: Response) => {
-    console.log('🔍 ID route called with id:', req.params.id);
+  router.get('/:id', async (Request, res: Response) => {
+    console.log('🔍 ID route called with id:', Request.params.id);
     try {
-      const { id } = req.params;
-      const { noimage = 1 } = req.query;
+      const { id } = Request.params;
+      const { noimage = 1 } = Request.query;
 
       const response = await client.getPropertyAdvertising({
         propref: id,
@@ -243,19 +230,16 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
         });
       }
 
-      // Transform property for Framer with media fetching
-      const framerProperty = await transformPropertyForFramer(response.data[0], client);
-
-      const framerResponse: FramerApiResponse<FramerProperty> = {
+      const apiResponse: ApiResponse<PropertyAdvertising> = {
         success: true,
-        data: framerProperty,
+        data: response.data[0],
         message: 'Property found',
         timestamp: new Date().toISOString()
       };
 
-      res.json(framerResponse);
+      res.json(apiResponse);
     } catch (error) {
-      console.error(`Error fetching property ${req.params.id}:`, error);
+      console.error(`Error fetching property ${Request.params.id}:`, error);
       res.status(500).json({
         success: false,
         data: null,
@@ -267,7 +251,7 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
 
   /**
    * GET /api/properties/:id/gallery
-   * Get gallery images for a specific property (lazy loading)
+   * Get gallery images for a specific property
    */
   router.get('/:id/gallery', async (req: Request, res: Response) => {
     try {
@@ -285,17 +269,14 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
         });
       }
 
-      // Transform media for Framer
-      const galleryImages = mediaResponse.data.map(transformMediaForFramer);
-
-      const framerResponse: FramerApiResponse<FramerImage[]> = {
+      const apiResponse: ApiResponse<PropertyMedia[]> = {
         success: true,
-        data: galleryImages,
-        message: `Found ${galleryImages.length} gallery images for property ${id}`,
+        data: mediaResponse.data,
+        message: `Found ${mediaResponse.data.length} gallery images for property ${id}`,
         timestamp: new Date().toISOString()
       };
 
-      res.json(framerResponse);
+      res.json(apiResponse);
     } catch (error) {
       console.error(`Error fetching gallery for property ${req.params.id}:`, error);
       res.status(500).json({

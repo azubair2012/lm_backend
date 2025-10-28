@@ -1,11 +1,11 @@
 /**
  * Search Routes
- * Advanced search functionality for Framer
+ * Advanced search functionality
  */
 
 import { Router, Request, Response } from 'express';
 import { RentmanApiClient } from '../../client/RentmanApiClient';
-import { FramerSearchResponse, FramerApiResponse } from '../../types';
+import { PropertyAdvertising, ApiResponse } from '../../types';
 
 export default function searchRoutes(client: RentmanApiClient): Router {
   const router = Router();
@@ -74,47 +74,25 @@ export default function searchRoutes(client: RentmanApiClient): Router {
       const totalPages = Math.ceil(filteredProperties.length / parseInt(limit as string));
       const currentPage = parseInt(page as string);
 
-      const searchResponse: FramerApiResponse<FramerSearchResponse> = {
+      const searchResponse: ApiResponse<{
+        properties: PropertyAdvertising[];
+        pagination: {
+          page: number;
+          limit: number;
+          total: number;
+          totalPages: number;
+          hasNext: boolean;
+          hasPrev: boolean;
+        };
+        filters: {
+          areas: string[];
+          types: string[];
+          priceRange: { min: number; max: number };
+        };
+      }> = {
         success: true,
         data: {
-          properties: filteredProperties.map(prop => ({
-            id: prop.propref,
-            address: prop.displayaddress,
-            price: prop.displayprice,
-            rentMonth: parseFloat(prop.rentmonth),
-            type: prop.TYPE,
-            beds: parseInt(prop.beds),
-            singles: parseInt(prop.singles),
-            doubles: parseInt(prop.doubles),
-            baths: parseInt(prop.baths),
-            receptions: parseInt(prop.receps),
-            furnished: prop.furnished,
-            heating: prop.heating,
-            available: prop.available,
-            status: prop.STATUS,
-            rating: parseInt(prop.rating),
-            age: prop.age,
-            description: prop.DESCRIPTION,
-            strapline: prop.strapline,
-            postcode: prop.postcode,
-            area: prop.area,
-            url: prop.url,
-            images: {
-              main: {
-                thumb: `/api/images/${prop.photo1}_thumb.webp`,
-                medium: `/api/images/${prop.photo1}_medium.webp`,
-                large: `/api/images/${prop.photo1}_large.webp`,
-                original: `/api/images/${prop.photo1}_original.webp`
-              },
-              floorplan: prop.floorplan ? {
-                thumb: `/api/images/${prop.floorplan}_thumb.webp`,
-                medium: `/api/images/${prop.floorplan}_medium.webp`,
-                large: `/api/images/${prop.floorplan}_large.webp`,
-                original: `/api/images/${prop.floorplan}_original.webp`
-              } : undefined,
-              gallery: []
-            }
-          })),
+          properties: filteredProperties,
           pagination: {
             page: currentPage,
             limit: parseInt(limit as string),

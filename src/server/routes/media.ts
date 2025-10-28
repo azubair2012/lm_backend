@@ -1,12 +1,11 @@
 /**
  * Media Routes
- * Framer-optimized endpoints for property media
+ * API endpoints for property media
  */
 
 import { Router, Request, Response } from 'express';
 import { RentmanApiClient } from '../../client/RentmanApiClient';
-import { FramerImage, FramerApiResponse } from '../../types';
-import { transformMediaForFramer } from '../../framer/dataTransformers';
+import { PropertyMedia, ApiResponse } from '../../types';
 
 export default function mediaRoutes(client: RentmanApiClient): Router {
   const router = Router();
@@ -18,30 +17,17 @@ export default function mediaRoutes(client: RentmanApiClient): Router {
   router.get('/:propertyId', async (req: Request, res: Response) => {
     try {
       const { propertyId } = req.params;
-      const { format = 'json' } = req.query;
 
       const response = await client.getPropertyMedia({ propref: propertyId });
-
-      if (response.data.length === 0) {
-        return res.status(404).json({
-          success: false,
-          data: [],
-          message: `No media found for property ${propertyId}`,
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      // Transform media for Framer
-      const framerMedia: FramerImage[] = response.data.map(transformMediaForFramer);
-
-      const framerResponse: FramerApiResponse<FramerImage[]> = {
+      
+      const apiResponse: ApiResponse<PropertyMedia[]> = {
         success: true,
-        data: framerMedia,
-        message: `Found ${framerMedia.length} media files for property ${propertyId}`,
+        data: response.data,
+        message: `Found ${response.data.length} media files for property ${propertyId}`,
         timestamp: new Date().toISOString()
       };
 
-      res.json(framerResponse);
+      res.json(apiResponse);
     } catch (error) {
       console.error(`Error fetching media for property ${req.params.propertyId}:`, error);
       res.status(500).json({
@@ -54,42 +40,41 @@ export default function mediaRoutes(client: RentmanApiClient): Router {
   });
 
   /**
-   * GET /api/media/file/:filename
-   * Get specific media file
+   * GET /api/media/:propertyId/:mediaId
+   * Get specific media item
    */
-  router.get('/file/:filename', async (req: Request, res: Response) => {
+  router.get('/:propertyId/:mediaId', async (req: Request, res: Response) => {
     try {
-      const { filename } = req.params;
-      const { format = 'json' } = req.query;
+      const { propertyId, mediaId } = req.params;
 
-      const response = await client.getPropertyMedia({ filename });
+      const response = await client.getPropertyMedia({ 
+        propref: propertyId,
+        mediaId: mediaId
+      });
 
       if (response.data.length === 0) {
         return res.status(404).json({
           success: false,
           data: null,
-          message: `Media file ${filename} not found`,
+          message: `Media item ${mediaId} not found for property ${propertyId}`,
           timestamp: new Date().toISOString()
         });
       }
 
-      // Transform media for Framer
-      const framerMedia = transformMediaForFramer(response.data[0]);
-
-      const framerResponse: FramerApiResponse<FramerImage> = {
+      const apiResponse: ApiResponse<PropertyMedia> = {
         success: true,
-        data: framerMedia,
-        message: 'Media file found',
+        data: response.data[0],
+        message: 'Media item found',
         timestamp: new Date().toISOString()
       };
 
-      res.json(framerResponse);
+      res.json(apiResponse);
     } catch (error) {
-      console.error(`Error fetching media file ${req.params.filename}:`, error);
+      console.error(`Error fetching media item ${req.params.mediaId}:`, error);
       res.status(500).json({
         success: false,
         data: null,
-        message: 'Failed to fetch media file',
+        message: 'Failed to fetch media item',
         timestamp: new Date().toISOString()
       });
     }
