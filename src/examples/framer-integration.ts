@@ -21,7 +21,9 @@ async function fetchPropertiesForFramer() {
     const response = await client.getPropertyAdvertising({ limit: 5, noimage: 1 });
     
     // Transform for Framer
-    const framerProperties = response.data.map(transformPropertyForFramer);
+    const framerProperties = await Promise.all(
+      response.data.map(property => transformPropertyForFramer(property, client))
+    );
     
     console.log('Framer-ready properties:');
     framerProperties.forEach((property, index) => {
@@ -83,7 +85,7 @@ async function getCompletePropertyForFramer(propertyId: string) {
     const propertyWithMedia = await client.getPropertyWithMedia(propertyId);
     
     // Transform property for Framer
-    const framerProperty = transformPropertyForFramer(propertyWithMedia.property);
+    const framerProperty = await transformPropertyForFramer(propertyWithMedia.property, client);
     
     // Transform media for Framer
     const framerMedia = propertyWithMedia.media.map(transformMediaForFramer);
@@ -116,7 +118,9 @@ async function searchPropertiesForFramer(query: string) {
     const properties = await client.searchPropertiesByArea(query, 10);
     
     // Transform for Framer
-    const framerProperties = properties.map(transformPropertyForFramer);
+    const framerProperties = await Promise.all(
+      properties.map(property => transformPropertyForFramer(property, client))
+    );
     
     console.log(`Found ${framerProperties.length} properties matching "${query}"`);
     
@@ -156,7 +160,9 @@ async function generateFramerComponentData() {
     const featured = await client.getFeaturedProperties(3);
     
     // Transform for Framer
-    const framerProperties = featured.map(transformPropertyForFramer);
+    const framerProperties = await Promise.all(
+      featured.map(property => transformPropertyForFramer(property, client))
+    );
     
     // Generate component data structure
     const componentData = {
