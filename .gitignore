@@ -15,6 +15,11 @@ build/
 .env.test.local
 .env.production.local
 
+# Keep environment templates
+!.env.example
+!.env.development
+!.env.production
+
 # Logs
 logs/
 *.log

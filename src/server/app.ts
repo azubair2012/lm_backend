@@ -253,7 +253,7 @@ export class RentmanServer {
       }
 
       const server = this.app.listen(this.port, () => {
-        serverLogger.serverReady(this.port, 'localhost');
+        serverLogger.serverReady(this.port, config.server.host);
         logger.info('Server started successfully', {
           port: this.port,
           environment: process.env.NODE_ENV || 'development',

@@ -4,6 +4,7 @@
  */
 
 import { PropertyAdvertising, PropertyMedia } from '../types';
+import { config } from '../config';
 
 /**
  * Format property price for display
@@ -256,7 +257,7 @@ export function formatPropertyUrl(url: string, propref: string): string {
   }
   
   // Generate default URL if none provided
-  return `https://www.rentman.online/property/${propref}`;
+  return `${config.rentman.baseUrl}/property/${propref}`;
 }
 
 /**
