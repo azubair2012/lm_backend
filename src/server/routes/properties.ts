@@ -7,6 +7,50 @@ import { Router, Request, Response } from 'express';
 import { RentmanApiClient } from '../../client/RentmanApiClient';
 import { PropertyAdvertising, PropertyMedia, ApiResponse } from '../../types';
 
+/**
+ * Process property images from raw photo fields
+ */
+function processPropertyImages(property: any) {
+  const images: any = {
+    main: null,
+    gallery: [],
+    thumbnails: []
+  };
+
+  // Extract all photo fields (photo1, photo2, etc.)
+  const photoFields = Object.keys(property).filter(key => key.startsWith('photo') && property[key]);
+  const photos = photoFields.map(key => property[key]).filter(Boolean);
+
+  if (photos.length > 0) {
+    // Set main image (first photo)
+    images.main = {
+      url: `/api/images/${photos[0]}`,
+      alt: `Property Image 1`,
+      width: 1200,
+      height: 800
+    };
+
+    // Create gallery array
+    images.gallery = photos.map((photo, index) => ({
+      url: `/api/images/${photo}`,
+      alt: `Property Image ${index + 1}`,
+      width: 1200,
+      height: 800,
+      thumbnail: `/api/images/${photo}?w=300&h=200&fit=crop`
+    }));
+
+    // Create thumbnails array
+    images.thumbnails = photos.map((photo, index) => ({
+      url: `/api/images/${photo}?w=300&h=200&fit=crop`,
+      alt: `Property Image ${index + 1} thumbnail`,
+      width: 300,
+      height: 200
+    }));
+  }
+
+  return images;
+}
+
 export default function propertyRoutes(client: RentmanApiClient): Router {
   const router = Router();
 
@@ -36,10 +80,16 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
 
       const response = await client.getPropertyAdvertising(params);
       
+      // Process each property to add images object
+      const processedProperties = response.data.map(property => ({
+        ...property,
+        images: processPropertyImages(property)
+      }));
+      
       const apiResponse: ApiResponse<PropertyAdvertising[]> = {
         success: true,
-        data: response.data,
-        message: `Found ${response.data.length} properties`,
+        data: processedProperties,
+        message: `Found ${processedProperties.length} properties`,
         timestamp: new Date().toISOString()
       };
 
@@ -122,6 +172,12 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       const totalPages = Math.ceil(total / parseInt(limit as string));
       const currentPage = parseInt(page as string);
 
+      // Process each property to add images object
+      const processedProperties = filteredProperties.map(property => ({
+        ...property,
+        images: processPropertyImages(property)
+      }));
+
       const searchResponse: ApiResponse<{
         properties: PropertyAdvertising[];
         pagination: {
@@ -140,7 +196,7 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       }> = {
         success: true,
         data: {
-          properties: filteredProperties,
+          properties: processedProperties,
           pagination: {
             page: currentPage,
             limit: parseInt(limit as string),
@@ -150,15 +206,15 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
             hasPrev: currentPage > 1
           },
           filters: {
-            areas: [...new Set(filteredProperties.map(p => p.area))],
-            types: [...new Set(filteredProperties.map(p => p.TYPE))],
+            areas: [...new Set(processedProperties.map(p => p.area))],
+            types: [...new Set(processedProperties.map(p => p.TYPE))],
             priceRange: {
-              min: Math.min(...filteredProperties.map(p => parseFloat(p.rentmonth))),
-              max: Math.max(...filteredProperties.map(p => parseFloat(p.rentmonth)))
+              min: Math.min(...processedProperties.map(p => parseFloat(p.rentmonth))),
+              max: Math.max(...processedProperties.map(p => parseFloat(p.rentmonth)))
             }
           }
         },
-        message: `Found ${filteredProperties.length} properties matching search criteria`,
+        message: `Found ${processedProperties.length} properties matching search criteria`,
         timestamp: new Date().toISOString()
       };
       res.json(searchResponse);
@@ -187,10 +243,16 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
 
       const properties = await client.getFeaturedProperties(parseInt(limit as string));
       
+      // Process each property to add images object
+      const processedProperties = properties.map(property => ({
+        ...property,
+        images: processPropertyImages(property)
+      }));
+      
       const apiResponse: ApiResponse<PropertyAdvertising[]> = {
         success: true,
-        data: properties,
-        message: `Found ${properties.length} featured properties`,
+        data: processedProperties,
+        message: `Found ${processedProperties.length} featured properties`,
         timestamp: new Date().toISOString()
       };
 
@@ -230,9 +292,16 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
         });
       }
 
+      // Process the property data to add images object
+      const property = response.data[0];
+      const processedProperty = {
+        ...property,
+        images: processPropertyImages(property)
+      };
+
       const apiResponse: ApiResponse<PropertyAdvertising> = {
         success: true,
-        data: response.data[0],
+        data: processedProperty,
         message: 'Property found',
         timestamp: new Date().toISOString()
       };

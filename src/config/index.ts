@@ -39,6 +39,13 @@ export interface AppConfig {
     ttl: number;
     maxSize: number;
   };
+  cloudinary: {
+    cloudName: string;
+    apiKey: string;
+    apiSecret: string;
+    folder: string;
+    secure: boolean;
+  };
   logging: {
     level: string;
     format: string;
@@ -76,6 +83,13 @@ const config: AppConfig = {
     ttl: parseInt(process.env.CACHE_TTL || '3600', 10), // 1 hour
     maxSize: parseInt(process.env.CACHE_MAX_SIZE || '100', 10) // 100 items
   },
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+    apiKey: process.env.CLOUDINARY_API_KEY || '',
+    apiSecret: process.env.CLOUDINARY_API_SECRET || '',
+    folder: process.env.CLOUDINARY_FOLDER || 'rentman-properties',
+    secure: process.env.NODE_ENV === 'production'
+  },
   logging: {
     level: process.env.LOG_LEVEL || 'info',
     format: process.env.LOG_FORMAT || 'combined'
@@ -104,6 +118,18 @@ export function validateConfig(): void {
 
   if (config.rentman.retries < 0 || config.rentman.retries > 10) {
     errors.push('RENTMAN_RETRIES must be between 0 and 10');
+  }
+
+  if (!config.cloudinary.cloudName) {
+    errors.push('CLOUDINARY_CLOUD_NAME is required');
+  }
+
+  if (!config.cloudinary.apiKey) {
+    errors.push('CLOUDINARY_API_KEY is required');
+  }
+
+  if (!config.cloudinary.apiSecret) {
+    errors.push('CLOUDINARY_API_SECRET is required');
   }
 
   if (errors.length > 0) {

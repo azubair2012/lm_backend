@@ -7,6 +7,7 @@ import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
 import { ImageProcessingConfig, ImageSize } from '../types';
+import { cloudinaryService } from './cloudinaryService';
 
 export class ImageProcessor {
   private config: ImageProcessingConfig;
@@ -234,6 +235,87 @@ export class ImageProcessor {
     } catch (error) {
       console.error('Error getting image metadata:', error);
       throw new Error(`Failed to get image metadata: ${error}`);
+    }
+  }
+
+  /**
+   * Process and upload image to Cloudinary (NEW METHOD)
+   */
+  async processAndUploadImage(
+    base64Data: string,
+    filename: string
+  ): Promise<{ [key: string]: string }> {
+    try {
+      // Upload multiple sizes to Cloudinary
+      const results = await cloudinaryService.uploadMultipleSizes(base64Data, filename);
+      
+      return results;
+    } catch (error) {
+      console.error('Error processing and uploading image:', error);
+      throw new Error(`Failed to process and upload image ${filename}: ${error}`);
+    }
+  }
+
+  /**
+   * Generate Cloudinary URL for different image sizes (NEW METHOD)
+   */
+  generateCloudinaryUrl(
+    publicId: string,
+    size: 'thumb' | 'medium' | 'large' | 'original' = 'medium'
+  ): string {
+    return cloudinaryService.generateSizeUrl(publicId, size);
+  }
+
+  /**
+   * Generate Cloudinary srcset for responsive images (NEW METHOD)
+   */
+  generateCloudinarySrcSet(publicId: string): string {
+    const sizes = ['thumb', 'medium', 'large'];
+    return sizes
+      .map(size => {
+        const url = this.generateCloudinaryUrl(publicId, size as any);
+        const width = size === 'thumb' ? 300 : size === 'medium' ? 800 : 1200;
+        return `${url} ${width}w`;
+      })
+      .join(', ');
+  }
+
+  /**
+   * Dynamically fetch and cache image from Rentman API to Cloudinary
+   */
+  async fetchAndCacheImage(
+    filename: string,
+    client: any
+  ): Promise<{ [key: string]: string }> {
+    try {
+      console.log(`🔄 Fetching image ${filename} from Rentman API...`);
+      
+      // Fetch from Rentman API
+      const mediaResponse = await client.getPropertyMedia({ filename });
+      
+      if (mediaResponse.data.length === 0) {
+        throw new Error(`Image ${filename} not found in Rentman API`);
+      }
+      
+      const media = mediaResponse.data[0];
+      
+      if (!media.base64data) {
+        throw new Error(`No base64 data for image ${filename}`);
+      }
+      
+      // Upload to Cloudinary
+      const results = await cloudinaryService.uploadMultipleSizes(
+        media.base64data,
+        filename
+      );
+      
+      console.log(`✅ Successfully cached ${filename} to Cloudinary`);
+      
+      return results;
+      
+    } catch (error) {
+      console.error(`❌ Failed to fetch and cache image ${filename}:`, error);
+      throw new Error(`Failed to fetch and cache image ${filename}: ${error}`);
     }
   }
 }

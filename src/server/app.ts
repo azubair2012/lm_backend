@@ -11,7 +11,7 @@ import { config, validateConfig } from '../config';
 import { RentmanApiClient } from '../client/RentmanApiClient';
 import { RentmanApiConfig } from '../types';
 import { logger, serverLogger } from '../utils/logger';
-import { cache } from '../utils/cache';
+import { cache, CacheKeys } from '../utils/cache';
 import { rateLimit, ipRateLimit } from '../middleware/rateLimiter';
 import { 
   errorHandler, 
@@ -24,6 +24,7 @@ import {
   metricsMiddleware, 
   initializeHealthMonitor 
 } from '../middleware/healthCheck';
+import { cloudinaryService } from '../utils/cloudinaryService';
 
 // Validate configuration
 try {
@@ -84,8 +85,8 @@ export class RentmanServer {
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-    // Static files for images
-    this.app.use('/api/images', express.static(path.join(__dirname, '../../public/images')));
+    // Static files for images - REMOVED: Now handled by dynamic Cloudinary fetching
+    // this.app.use('/api/images', express.static(path.join(__dirname, '../../public/images')));
 
     // Request logging
     this.app.use((req, res, next) => {
@@ -125,84 +126,162 @@ export class RentmanServer {
     this.app.use('/api/media', mediaRoutes(this.client));
     this.app.use('/api/search', searchRoutes(this.client));
 
-    // Image serving route with caching
+    // Image serving route with dynamic Cloudinary fetching
     this.app.get('/api/images/:filename', asyncHandler(async (req: any, res: any) => {
       const { filename } = req.params;
-      const cacheDir = path.join(__dirname, '../../public/images/cache');
-      const imagePath = path.join(cacheDir, filename);
+      const { size } = req.query;
+      
+      // Log request for debugging
+      console.log(`📸 Image request: ${filename}, size: ${size || 'default'}`);
       
       try {
-        // Check if image exists in cache
-        if (fs.existsSync(imagePath)) {
-          console.log(`Serving cached image: ${filename}`);
-          
-          // Serve from cache
-          const imageBuffer = fs.readFileSync(imagePath);
-          const extension = filename.split('.').pop()?.toLowerCase();
-          const contentType = extension === 'jpg' || extension === 'jpeg' ? 'image/jpeg' : 
-                             extension === 'png' ? 'image/png' : 
-                             extension === 'webp' ? 'image/webp' : 'image/jpeg';
-          
-          res.set({
-            'Content-Type': contentType,
-            'Content-Length': imageBuffer.length,
-            'Cache-Control': 'public, max-age=31536000', // 1 year cache
-            'ETag': `"${filename}"`,
-            'X-Cache': 'HIT'
-          });
-          
-          return res.send(imageBuffer);
+        // Extract size from filename or query parameter (e.g., image_thumb.webp -> thumb)
+        let imageSize = size as string || 'medium';
+        const sizeMatch = filename.match(/_(\w+)\./);
+        if (sizeMatch) {
+          imageSize = sizeMatch[1];
         }
         
-        console.log(`Cache miss, fetching image: ${filename}`);
+        // Extract base filename without size suffix
+        const baseFilename = filename.replace(/_\w+\./, '.');
+        const baseNameWithoutExt = baseFilename.replace(/\.[^/.]+$/, '');
+        // Ensure publicId doesn't include version prefix
+        const publicId = `${config.cloudinary.folder}/${baseNameWithoutExt}`.replace(/^v\d+\//, '');
         
-        // Image not in cache, fetch from external API
-        const mediaResponse = await this.client.getPropertyMedia({ filename });
+        console.log(`🔍 Looking for image: publicId=${publicId}, baseFilename=${baseFilename}`);
         
-        if (mediaResponse.data.length === 0) {
-          return res.status(404).json({
+        // Check cache first - avoid unnecessary Cloudinary API calls
+        const cacheKey = CacheKeys.image(baseFilename, imageSize);
+        const cachedUrl = cache.get<string>(cacheKey);
+        
+        if (cachedUrl) {
+          console.log(`✅ Image found in cache: ${filename}`);
+          return res.redirect(302, cachedUrl);
+        }
+        
+        // Check if image exists in Cloudinary first
+        // Note: uploadMultipleSizes now uploads the original image (no suffix), transformations applied on-the-fly
+        try {
+          await cloudinaryService.getImageInfo(publicId);
+          
+          // Generate Cloudinary URL with transformations
+          const imageUrl = cloudinaryService.generateSizeUrl(
+            publicId, 
+            imageSize as 'thumb' | 'medium' | 'large' | 'original'
+          );
+          
+          console.log(`✅ Image found in Cloudinary: ${filename}`);
+          
+          // Cache the URL for 1 hour (matching nginx cache TTL)
+          cache.set(cacheKey, imageUrl, 3600);
+          
+          // Redirect to Cloudinary URL
+          res.redirect(302, imageUrl);
+          
+        } catch (cloudinaryError) {
+          // Log the error for debugging
+          console.log(`⚠️ Cloudinary check failed for ${publicId}:`, cloudinaryError instanceof Error ? cloudinaryError.message : cloudinaryError);
+          console.log(`❌ Image ${filename} not found in Cloudinary, fetching from Rentman API...`);
+          
+          try {
+            // Fetch image from Rentman API
+            const mediaResponse = await this.client.getPropertyMedia({ 
+              filename: baseFilename 
+            });
+            
+            if (mediaResponse.data.length === 0) {
+              throw new Error(`Image ${filename} not found in Rentman API`);
+            }
+            
+            const media = mediaResponse.data[0];
+            
+            if (!media.base64data) {
+              throw new Error(`No base64 data for image ${filename}`);
+            }
+            
+            console.log(`📥 Fetched image ${filename} from Rentman API, uploading to Cloudinary...`);
+            
+            // Upload to Cloudinary with multiple sizes
+            const cloudinaryResults = await cloudinaryService.uploadMultipleSizes(
+              media.base64data,
+              baseFilename
+            );
+            
+            console.log(`✅ Uploaded ${filename} to Cloudinary successfully`);
+            
+            // Generate the requested size URL (transformations applied on-the-fly)
+            const imageUrl = cloudinaryService.generateSizeUrl(
+              publicId, 
+              imageSize as 'thumb' | 'medium' | 'large' | 'original'
+            );
+            
+            // Cache the URL for 1 hour (matching nginx cache TTL)
+            cache.set(cacheKey, imageUrl, 3600);
+            
+            // Redirect to the newly uploaded Cloudinary URL
+            res.redirect(302, imageUrl);
+            
+          } catch (rentmanError) {
+            console.error(`❌ Failed to fetch image ${filename} from Rentman API:`, rentmanError);
+            
+            // Log full error details for debugging
+            if (rentmanError instanceof Error) {
+              console.error(`Error message: ${rentmanError.message}`);
+              console.error(`Error stack: ${rentmanError.stack}`);
+            }
+            
+            res.status(404).json({
+              success: false,
+              message: `Image ${filename} not found in Rentman API`,
+              details: rentmanError instanceof Error ? rentmanError.message : String(rentmanError),
+              timestamp: new Date().toISOString()
+            });
+          }
+        }
+        
+      } catch (error) {
+        console.error(`❌ Error serving image ${filename}:`, error);
+        if (error instanceof Error) {
+          console.error(`Error message: ${error.message}`);
+          console.error(`Error stack: ${error.stack}`);
+        }
+        res.status(500).json({
+          success: false,
+          message: `Failed to serve image ${filename}`,
+          details: error instanceof Error ? error.message : String(error),
+          timestamp: new Date().toISOString()
+        });
+      }
+    }));
+
+    // Image upload route to Cloudinary
+    this.app.post('/api/images/upload', asyncHandler(async (req: any, res: any) => {
+      try {
+        const { base64Data, filename } = req.body;
+        
+        if (!base64Data || !filename) {
+          return res.status(400).json({
             success: false,
-            message: `Image ${filename} not found`,
+            message: 'base64Data and filename are required',
             timestamp: new Date().toISOString()
           });
         }
         
-        const media = mediaResponse.data[0];
-        const imageBuffer = Buffer.from(media.base64data, 'base64');
+        // Upload to Cloudinary
+        const results = await cloudinaryService.uploadMultipleSizes(base64Data, filename);
         
-        // Ensure cache directory exists
-        if (!fs.existsSync(cacheDir)) {
-          fs.mkdirSync(cacheDir, { recursive: true });
-          console.log(`Created cache directory: ${cacheDir}`);
-        }
-        
-        // Save to cache
-        fs.writeFileSync(imagePath, imageBuffer);
-        console.log(`Cached image: ${filename} (${imageBuffer.length} bytes)`);
-        
-        // Determine content type based on file extension
-        const extension = filename.split('.').pop()?.toLowerCase();
-        const contentType = extension === 'jpg' || extension === 'jpeg' ? 'image/jpeg' : 
-                           extension === 'png' ? 'image/png' : 
-                           extension === 'webp' ? 'image/webp' : 'image/jpeg';
-        
-        // Set appropriate headers
-        res.set({
-          'Content-Type': contentType,
-          'Content-Length': imageBuffer.length,
-          'Cache-Control': 'public, max-age=31536000', // 1 year cache
-          'ETag': `"${filename}"`,
-          'X-Cache': 'MISS'
+        res.json({
+          success: true,
+          data: results,
+          message: 'Image uploaded successfully to Cloudinary',
+          timestamp: new Date().toISOString()
         });
         
-        // Send the image data
-        res.send(imageBuffer);
-        
       } catch (error) {
-        console.error(`Error serving image ${filename}:`, error);
+        console.error('Error uploading image to Cloudinary:', error);
         res.status(500).json({
           success: false,
-          message: 'Failed to serve image',
+          message: 'Failed to upload image to Cloudinary',
           timestamp: new Date().toISOString()
         });
       }
