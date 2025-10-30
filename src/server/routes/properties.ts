@@ -6,6 +6,9 @@
 import { Router, Request, Response } from 'express';
 import { RentmanApiClient } from '../../client/RentmanApiClient';
 import { PropertyAdvertising, PropertyMedia, ApiResponse } from '../../types';
+import { cloudinaryService } from '../../utils/cloudinaryService';
+import { config } from '../../config';
+import { cache, CacheKeys } from '../../utils/cache';
 
 /**
  * Process property images from raw photo fields
@@ -336,6 +339,51 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
           message: `No gallery images found for property ${id}`,
           timestamp: new Date().toISOString()
         });
+      }
+
+      // Upload all gallery images to Cloudinary immediately to ensure they're available
+      // This prevents 404s when the frontend requests images by filename
+      console.log(`📤 Uploading ${mediaResponse.data.length} gallery images to Cloudinary for property ${id}...`);
+      
+      const uploadPromises = mediaResponse.data.map(async (media) => {
+        if (!media.base64data) {
+          console.warn(`⚠️ No base64 data for gallery image ${media.filename}`);
+          return { success: false, filename: media.filename, reason: 'No base64 data' };
+        }
+
+        try {
+          // Upload to Cloudinary with multiple sizes (returns URLs with proper versions)
+          const cloudinaryResults = await cloudinaryService.uploadMultipleSizes(
+            media.base64data,
+            media.filename
+          );
+
+          // Cache the URLs returned from upload (already have correct versions)
+          Object.entries(cloudinaryResults).forEach(([size, url]) => {
+            cache.set(CacheKeys.image(media.filename, size), url, 3600);
+          });
+
+          console.log(`✅ Uploaded and cached gallery image: ${media.filename}`);
+          return { success: true, filename: media.filename };
+        } catch (uploadError) {
+          console.error(`❌ Failed to upload gallery image ${media.filename}:`, uploadError);
+          return { 
+            success: false, 
+            filename: media.filename, 
+            reason: uploadError instanceof Error ? uploadError.message : String(uploadError) 
+          };
+        }
+      });
+
+      // Wait for all uploads to complete (using allSettled to handle errors gracefully)
+      const uploadResults = await Promise.allSettled(uploadPromises);
+      const successfulUploads = uploadResults.filter(r => r.status === 'fulfilled' && r.value?.success).length;
+      const failedUploads = uploadResults.length - successfulUploads;
+      
+      if (failedUploads > 0) {
+        console.warn(`⚠️ Failed to upload ${failedUploads} out of ${uploadResults.length} gallery images for property ${id}`);
+      } else {
+        console.log(`✅ Successfully uploaded all ${successfulUploads} gallery images for property ${id}`);
       }
 
       const apiResponse: ApiResponse<PropertyMedia[]> = {

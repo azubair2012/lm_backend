@@ -17,6 +17,7 @@ cloudinary.config({
 export interface CloudinaryUploadResult {
   public_id: string;
   secure_url: string;
+  version: string;
   width: number;
   height: number;
   format: string;
@@ -66,10 +67,14 @@ export class CloudinaryService {
 
       // Ensure publicId doesn't have version prefix
       const cleanPublicId = result.public_id.replace(/^v\d+\//, '');
+      
+      // Extract version from result (Cloudinary assigns a timestamp as version)
+      const version = result.version?.toString() || '';
 
       return {
         public_id: cleanPublicId,
         secure_url: result.secure_url,
+        version: version,
         width: result.width,
         height: result.height,
         format: result.format,
@@ -96,15 +101,16 @@ export class CloudinaryService {
         undefined // No transformations during upload
       );
 
-      // Use the publicId returned from Cloudinary
+      // Use the publicId and version returned from Cloudinary
       const publicId = result.public_id;
+      const version = result.version;
 
       // Generate URLs for different sizes using on-the-fly transformations
       const results: { [key: string]: string } = {
-        thumb: this.generateSizeUrl(publicId, 'thumb'),
-        medium: this.generateSizeUrl(publicId, 'medium'),
-        large: this.generateSizeUrl(publicId, 'large'),
-        original: this.generateSizeUrl(publicId, 'original')
+        thumb: this.generateSizeUrl(publicId, 'thumb', version),
+        medium: this.generateSizeUrl(publicId, 'medium', version),
+        large: this.generateSizeUrl(publicId, 'large', version),
+        original: this.generateSizeUrl(publicId, 'original', version)
       };
 
       return results;
@@ -119,18 +125,20 @@ export class CloudinaryService {
    */
   generateUrl(
     publicId: string,
-    transformations?: CloudinaryTransformation
+    transformations?: CloudinaryTransformation,
+    version?: string
   ): string {
-    // Remove any version prefix that might have been added
+    // Remove any version prefix from the publicId itself (not from the final URL)
     const cleanPublicId = publicId.replace(/^v\d+\//, '').replace(/\/v\d+\//, '/');
     
     const url = cloudinary.url(cleanPublicId, {
       transformation: transformations ? [transformations] : undefined,
-      secure: config.cloudinary.secure
+      secure: config.cloudinary.secure,
+      version: version // Include the actual version number from upload
     });
     
-    // Remove any /v1/ that Cloudinary SDK might have added
-    return url.replace(/\/v\d+\//, '/');
+    // Return the URL as-is - Cloudinary needs the version number for caching
+    return url;
   }
 
   /**
@@ -163,7 +171,8 @@ export class CloudinaryService {
    */
   generateSizeUrl(
     publicId: string,
-    size: 'thumb' | 'medium' | 'large' | 'original' = 'medium'
+    size: 'thumb' | 'medium' | 'large' | 'original' = 'medium',
+    version?: string
   ): string {
     const transformations: { [key: string]: CloudinaryTransformation } = {
       thumb: { width: 300, height: 200, quality: 80, crop: 'fill', gravity: 'auto' },
@@ -172,7 +181,7 @@ export class CloudinaryService {
       original: { quality: 'auto' }
     };
 
-    return this.generateUrl(publicId, transformations[size]);
+    return this.generateUrl(publicId, transformations[size], version);
   }
 }
 

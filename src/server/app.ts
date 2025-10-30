@@ -162,15 +162,17 @@ export class RentmanServer {
         // Check if image exists in Cloudinary first
         // Note: uploadMultipleSizes now uploads the original image (no suffix), transformations applied on-the-fly
         try {
-          await cloudinaryService.getImageInfo(publicId);
+          const imageInfo = await cloudinaryService.getImageInfo(publicId);
+          const version = imageInfo.version?.toString() || undefined;
           
-          // Generate Cloudinary URL with transformations
+          // Generate Cloudinary URL with transformations (including version)
           const imageUrl = cloudinaryService.generateSizeUrl(
             publicId, 
-            imageSize as 'thumb' | 'medium' | 'large' | 'original'
+            imageSize as 'thumb' | 'medium' | 'large' | 'original',
+            version
           );
           
-          console.log(`✅ Image found in Cloudinary: ${filename}`);
+          console.log(`✅ Image found in Cloudinary: ${filename} (version: ${version})`);
           
           // Cache the URL for 1 hour (matching nginx cache TTL)
           cache.set(cacheKey, imageUrl, 3600);
@@ -201,7 +203,7 @@ export class RentmanServer {
             
             console.log(`📥 Fetched image ${filename} from Rentman API, uploading to Cloudinary...`);
             
-            // Upload to Cloudinary with multiple sizes
+            // Upload to Cloudinary with multiple sizes (returns URLs with proper versions)
             const cloudinaryResults = await cloudinaryService.uploadMultipleSizes(
               media.base64data,
               baseFilename
@@ -209,14 +211,14 @@ export class RentmanServer {
             
             console.log(`✅ Uploaded ${filename} to Cloudinary successfully`);
             
-            // Generate the requested size URL (transformations applied on-the-fly)
-            const imageUrl = cloudinaryService.generateSizeUrl(
-              publicId, 
-              imageSize as 'thumb' | 'medium' | 'large' | 'original'
-            );
+            // Use the URL from uploadMultipleSizes result (already has correct version)
+            const imageUrl = cloudinaryResults[imageSize] || cloudinaryResults['medium'];
             
-            // Cache the URL for 1 hour (matching nginx cache TTL)
-            cache.set(cacheKey, imageUrl, 3600);
+            // Cache all size URLs for 1 hour (matching nginx cache TTL)
+            Object.entries(cloudinaryResults).forEach(([size, url]) => {
+              const sizeCacheKey = CacheKeys.image(baseFilename, size);
+              cache.set(sizeCacheKey, url as string, 3600);
+            });
             
             // Redirect to the newly uploaded Cloudinary URL
             res.redirect(302, imageUrl);
