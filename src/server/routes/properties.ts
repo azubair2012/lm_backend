@@ -51,6 +51,16 @@ function processPropertyImages(property: any) {
     }));
   }
 
+  // Add floorplan if available
+  if (property.floorplan && property.floorplan.trim()) {
+    images.floorplan = {
+      thumb: `/api/images/${property.floorplan}`,
+      medium: `/api/images/${property.floorplan}`,
+      large: `/api/images/${property.floorplan}`,
+      original: `/api/images/${property.floorplan}`,
+    };
+  }
+
   return images;
 }
 
