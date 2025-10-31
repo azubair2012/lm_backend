@@ -138,11 +138,10 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
         limit = 25 
       } = req.query;
 
-      // Build search parameters
+      // Build search parameters - fetch all properties without pagination
       const params: any = {
-        page: parseInt(page as string),
-        limit: parseInt(limit as string),
-        noimage: 1
+        noimage: 1,
+        limit: 1000 // Fetch all properties
       };
 
       if (area) params.area = 1;
@@ -182,11 +181,25 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       }
 
       const total = filteredProperties.length;
-      const totalPages = Math.ceil(total / parseInt(limit as string));
+      const requestedLimit = parseInt(limit as string);
+      const totalPages = Math.ceil(total / requestedLimit);
       const currentPage = parseInt(page as string);
 
+      console.log('📊 Search pagination:', { 
+        total, 
+        limit: requestedLimit, 
+        totalPages, 
+        currentPage,
+        hasNext: currentPage < totalPages
+      });
+
+      // Apply pagination by slicing the filtered array
+      const startIndex = (currentPage - 1) * requestedLimit;
+      const endIndex = startIndex + requestedLimit;
+      const paginatedProperties = filteredProperties.slice(startIndex, endIndex);
+
       // Process each property to add images object
-      const processedProperties = filteredProperties.map(property => ({
+      const processedProperties = paginatedProperties.map(property => ({
         ...property,
         images: processPropertyImages(property)
       }));
