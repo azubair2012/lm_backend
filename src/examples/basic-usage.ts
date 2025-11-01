@@ -20,10 +20,8 @@ async function basicExample() {
   
   try {
     // Get all properties
-    console.log('Fetching properties...');
-    const properties = await client.getPropertyAdvertising({ limit: 5 });
-    console.log(`Found ${properties.data.length} properties`);
-    
+        const properties = await client.getPropertyAdvertising({ limit: 5 });
+        
     // Display first property
     if (properties.data.length > 0) {
       const property = properties.data[0];
