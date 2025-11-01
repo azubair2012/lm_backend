@@ -43,6 +43,7 @@ export class RentmanServer {
   private app: express.Application;
   private client: RentmanApiClient;
   private port: number;
+  private uploadingImages: Map<string, Promise<Record<string, string>>> = new Map();
 
   constructor() {
     this.app = express();
@@ -186,42 +187,63 @@ export class RentmanServer {
           console.log(`❌ Image ${filename} not found in Cloudinary, fetching from Rentman API...`);
           
           try {
-            // Fetch image from Rentman API
-            const mediaResponse = await this.client.getPropertyMedia({ 
-              filename: baseFilename 
-            });
+            // Check if this image is already being uploaded
+            const uploadKey = baseFilename;
             
-            if (mediaResponse.data.length === 0) {
-              throw new Error(`Image ${filename} not found in Rentman API`);
+            if (this.uploadingImages.has(uploadKey)) {
+              console.log(`⏳ Image ${filename} is already being uploaded, waiting...`);
+              const cloudinaryResults = await this.uploadingImages.get(uploadKey)!;
+              const imageUrl = cloudinaryResults[imageSize] || cloudinaryResults['medium'];
+              return res.redirect(302, imageUrl);
             }
             
-            const media = mediaResponse.data[0];
+            // Start upload and store promise to prevent duplicate uploads
+            const uploadPromise = (async () => {
+              // Fetch image from Rentman API
+              const mediaResponse = await this.client.getPropertyMedia({ 
+                filename: baseFilename 
+              });
+              
+              if (mediaResponse.data.length === 0) {
+                throw new Error(`Image ${filename} not found in Rentman API`);
+              }
+              
+              const media = mediaResponse.data[0];
+              
+              if (!media.base64data) {
+                throw new Error(`No base64 data for image ${filename}`);
+              }
+              
+              console.log(`📥 Fetched image ${filename} from Rentman API, uploading to Cloudinary...`);
+              
+              // Upload to Cloudinary with multiple sizes (returns URLs with proper versions)
+              const cloudinaryResults = await cloudinaryService.uploadMultipleSizes(
+                media.base64data,
+                baseFilename
+              );
+              
+              console.log(`✅ Uploaded ${filename} to Cloudinary successfully`);
+              
+              // Cache all size URLs for 1 hour (matching nginx cache TTL)
+              Object.entries(cloudinaryResults).forEach(([size, url]) => {
+                const sizeCacheKey = CacheKeys.image(baseFilename, size);
+                cache.set(sizeCacheKey, url as string, 3600);
+              });
+              
+              return cloudinaryResults;
+            })();
             
-            if (!media.base64data) {
-              throw new Error(`No base64 data for image ${filename}`);
+            // Store the promise to prevent duplicate uploads
+            this.uploadingImages.set(uploadKey, uploadPromise);
+            
+            try {
+              const cloudinaryResults = await uploadPromise;
+              const imageUrl = cloudinaryResults[imageSize] || cloudinaryResults['medium'];
+              res.redirect(302, imageUrl);
+            } finally {
+              // Clean up after upload completes (success or failure)
+              this.uploadingImages.delete(uploadKey);
             }
-            
-            console.log(`📥 Fetched image ${filename} from Rentman API, uploading to Cloudinary...`);
-            
-            // Upload to Cloudinary with multiple sizes (returns URLs with proper versions)
-            const cloudinaryResults = await cloudinaryService.uploadMultipleSizes(
-              media.base64data,
-              baseFilename
-            );
-            
-            console.log(`✅ Uploaded ${filename} to Cloudinary successfully`);
-            
-            // Use the URL from uploadMultipleSizes result (already has correct version)
-            const imageUrl = cloudinaryResults[imageSize] || cloudinaryResults['medium'];
-            
-            // Cache all size URLs for 1 hour (matching nginx cache TTL)
-            Object.entries(cloudinaryResults).forEach(([size, url]) => {
-              const sizeCacheKey = CacheKeys.image(baseFilename, size);
-              cache.set(sizeCacheKey, url as string, 3600);
-            });
-            
-            // Redirect to the newly uploaded Cloudinary URL
-            res.redirect(302, imageUrl);
             
           } catch (rentmanError) {
             console.error(`❌ Failed to fetch image ${filename} from Rentman API:`, rentmanError);

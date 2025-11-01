@@ -167,7 +167,7 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       if (beds && typeof beds === 'string' && beds !== '') {
         const bedCount = parseInt(beds);
         filteredProperties = filteredProperties.filter(prop => 
-          parseInt(prop.beds) >= bedCount
+          parseInt(prop.beds) === bedCount
         );
       }
 
