@@ -166,9 +166,10 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
 
       if (beds && typeof beds === 'string' && beds !== '') {
         const bedCount = parseInt(beds);
-        filteredProperties = filteredProperties.filter(prop => 
-          parseInt(prop.beds) === bedCount
-        );
+        filteredProperties = filteredProperties.filter(prop => {
+          const totalBeds = parseInt(prop.beds) + parseInt(prop.singles) + parseInt(prop.doubles);
+          return totalBeds === bedCount;
+        });
       }
 
       if ((minPrice && typeof minPrice === 'string' && minPrice !== '') || (maxPrice && typeof maxPrice === 'string' && maxPrice !== '')) {
