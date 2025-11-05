@@ -190,15 +190,19 @@ export class RentmanServer {
             // Check if this image is already being uploaded
             const uploadKey = baseFilename;
             
-            if (this.uploadingImages.has(uploadKey)) {
-              console.log(`⏳ Image ${filename} is already being uploaded, waiting...`);
-              const cloudinaryResults = await this.uploadingImages.get(uploadKey)!;
+            // Check and atomically acquire lock - if another request already started, wait for it
+            let uploadPromise = this.uploadingImages.get(uploadKey);
+            
+            if (uploadPromise) {
+              console.log(`⏳ Image ${filename} is already being uploaded, waiting for completion...`);
+              const cloudinaryResults = await uploadPromise;
               const imageUrl = cloudinaryResults[imageSize] || cloudinaryResults['medium'];
               return res.redirect(302, imageUrl);
             }
             
-            // Start upload and store promise to prevent duplicate uploads
-            const uploadPromise = (async () => {
+            // No upload in progress - create new upload promise and acquire lock atomically
+            console.log(`🔒 Acquiring upload lock for ${filename}...`);
+            uploadPromise = (async () => {
               // Fetch image from Rentman API
               const mediaResponse = await this.client.getPropertyMedia({ 
                 filename: baseFilename 
@@ -233,8 +237,9 @@ export class RentmanServer {
               return cloudinaryResults;
             })();
             
-            // Store the promise to prevent duplicate uploads
+            // Store the promise IMMEDIATELY to prevent race conditions
             this.uploadingImages.set(uploadKey, uploadPromise);
+            console.log(`✅ Upload lock acquired for ${filename}`);
             
             try {
               const cloudinaryResults = await uploadPromise;
@@ -243,6 +248,7 @@ export class RentmanServer {
             } finally {
               // Clean up after upload completes (success or failure)
               this.uploadingImages.delete(uploadKey);
+              console.log(`🔓 Upload lock released for ${filename}`);
             }
             
           } catch (rentmanError) {
