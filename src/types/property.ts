@@ -36,6 +36,7 @@ export interface PropertyAdvertising {
   floorplan: string;
   url: string;
   photo1: string;
+  geolocation?: string;
 }
 
 export interface PropertyMedia {
