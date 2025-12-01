@@ -95,8 +95,10 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       const response = await client.getPropertyAdvertising(params);
       
       // Process each property to add images object
-      const processedProperties = response.data.map(property => ({
+      // Explicitly preserve geolocation field
+      const processedProperties = response.data.map((property: any) => ({
         ...property,
+        geolocation: property.geolocation || '',
         images: processPropertyImages(property)
       }));
       
@@ -225,8 +227,10 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       const paginatedProperties = filteredProperties.slice(startIndex, endIndex);
 
       // Process each property to add images object
-      const processedProperties = paginatedProperties.map(property => ({
+      // Explicitly preserve geolocation field
+      const processedProperties = paginatedProperties.map((property: any) => ({
         ...property,
+        geolocation: property.geolocation || '',
         images: processPropertyImages(property)
       }));
 
@@ -296,8 +300,10 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       const properties = await client.getFeaturedProperties(parseInt(limit as string));
       
       // Process each property to add images object
-      const processedProperties = properties.map(property => ({
+      // Explicitly preserve geolocation field
+      const processedProperties = properties.map((property: any) => ({
         ...property,
+        geolocation: property.geolocation || '',
         images: processPropertyImages(property)
       }));
       
@@ -369,10 +375,21 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       }
 
       // Process the property data to add images object
-      const processedProperty = {
+      // Explicitly preserve geolocation field to ensure it's not lost
+      const processedProperty: any = {
         ...property,
+        geolocation: (property as any).geolocation || property.geolocation || '',
         images: processPropertyImages(property)
       };
+
+      // Debug logging for geolocation
+      console.log('🔍 Property geolocation debug:', {
+        propref: property.propref,
+        hasGeolocation: 'geolocation' in property,
+        geolocation: (property as any).geolocation,
+        geolocationType: typeof (property as any).geolocation,
+        processedGeolocation: processedProperty.geolocation,
+      });
 
       const apiResponse: ApiResponse<PropertyAdvertising> = {
         success: true,
