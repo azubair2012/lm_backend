@@ -6,6 +6,8 @@
 // Property types
 export * from './property';
 
+// Blog types
+export * from './blog';
 
 // API types
 export * from './api';

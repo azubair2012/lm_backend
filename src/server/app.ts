@@ -25,6 +25,7 @@ import {
   initializeHealthMonitor 
 } from '../middleware/healthCheck';
 import { cloudinaryService } from '../utils/cloudinaryService';
+import { PropertySyncService } from '../services/propertySyncService';
 
 // Validate configuration
 try {
@@ -38,12 +39,14 @@ try {
 import propertyRoutes from './routes/properties';
 import mediaRoutes from './routes/media';
 import searchRoutes from './routes/search';
+import blogRoutes from './routes/blogs';
 
 export class RentmanServer {
   private app: express.Application;
   private client: RentmanApiClient;
   private port: number;
   private uploadingImages: Map<string, Promise<Record<string, string>>> = new Map();
+  private syncService: PropertySyncService;
 
   constructor() {
     this.app = express();
@@ -61,6 +64,9 @@ export class RentmanServer {
     
     // Initialize health monitor
     initializeHealthMonitor(this.client);
+    
+    // Initialize property sync service
+    this.syncService = new PropertySyncService(this.client);
     
     this.setupMiddleware();
     this.setupRoutes();
@@ -126,6 +132,7 @@ export class RentmanServer {
     this.app.use('/api/properties', propertyRoutes(this.client));
     this.app.use('/api/media', mediaRoutes(this.client));
     this.app.use('/api/search', searchRoutes(this.client));
+    this.app.use('/api/blogs', blogRoutes());
 
     // Image serving route with dynamic Cloudinary fetching
     this.app.get('/api/images/:filename', asyncHandler(async (req: any, res: any) => {
@@ -329,6 +336,7 @@ export class RentmanServer {
           properties: '/api/properties',
           media: '/api/media',
           search: '/api/search',
+          blogs: '/api/blogs',
           images: '/api/images'
         },
         documentation: {
@@ -370,9 +378,13 @@ export class RentmanServer {
         });
       });
 
+      // Start property sync service
+      await this.syncService.start();
+
       // Graceful shutdown
       process.on('SIGTERM', () => {
         serverLogger.info('SIGTERM received, shutting down gracefully');
+        this.syncService.stop();
         server.close(() => {
           logger.info('Server closed');
           process.exit(0);
@@ -381,6 +393,7 @@ export class RentmanServer {
 
       process.on('SIGINT', () => {
         serverLogger.info('SIGINT received, shutting down gracefully');
+        this.syncService.stop();
         server.close(() => {
           logger.info('Server closed');
           process.exit(0);

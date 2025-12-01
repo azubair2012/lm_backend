@@ -9,6 +9,7 @@ import { PropertyAdvertising, PropertyMedia, ApiResponse } from '../../types';
 import { cloudinaryService } from '../../utils/cloudinaryService';
 import { config } from '../../config';
 import { cache, CacheKeys } from '../../utils/cache';
+import { redisCache, RedisCacheKeys } from '../../utils/redisCache';
 
 /**
  * Process property images from raw photo fields
@@ -135,10 +136,27 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
         maxPrice, 
         featured,
         page = 1, 
-        limit = 25 
+        limit = 12 
       } = req.query;
 
-      // Build search parameters - fetch all properties without pagination
+      // Try to get properties from Redis cache first
+      let allProperties: PropertyAdvertising[] = [];
+      let cacheSource = 'redis';
+
+      if (config.redis.enabled && redisCache.isReady()) {
+        const cachedProperties = await redisCache.get<PropertyAdvertising[]>(RedisCacheKeys.allProperties());
+        
+        if (cachedProperties && cachedProperties.length > 0) {
+          allProperties = cachedProperties;
+          console.log(`✅ Using ${cachedProperties.length} properties from Redis cache`);
+        }
+      }
+
+      // Fallback to API if Redis cache miss or disabled
+      if (allProperties.length === 0) {
+        cacheSource = 'api';
+        console.log('⚠️ Redis cache miss or disabled, fetching from Rentman API');
+        
       const params: any = {
         noimage: 1,
         limit: 1000 // Fetch all properties
@@ -149,9 +167,16 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       if (type) params.rob = type;
 
       const response = await client.getPropertyAdvertising(params);
+        allProperties = Array.isArray(response.data) ? response.data : [response.data];
+        
+        // Cache in Redis for 15 minutes as emergency backup
+        if (config.redis.enabled && redisCache.isReady()) {
+          await redisCache.set(RedisCacheKeys.allProperties(), allProperties, 900);
+        }
+      }
       
       // Apply client-side filters
-      let filteredProperties = Array.isArray(response.data) ? response.data : [response.data];
+      let filteredProperties = allProperties;
 
       if (q && typeof q === 'string' && q.trim() !== '') {
         const query = q.toLowerCase();
@@ -241,7 +266,7 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
             }
           }
         },
-        message: `Found ${processedProperties.length} properties matching search criteria`,
+        message: `Found ${processedProperties.length} properties matching search criteria (source: ${cacheSource})`,
         timestamp: new Date().toISOString()
       };
       res.json(searchResponse);
@@ -305,6 +330,22 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       const { id } = Request.params;
       const { noimage = 1 } = Request.query;
 
+      let property: PropertyAdvertising | null = null;
+      let cacheSource = 'redis';
+
+      // Try Redis cache first
+      if (config.redis.enabled && redisCache.isReady()) {
+        property = await redisCache.get<PropertyAdvertising>(RedisCacheKeys.property(id));
+        if (property) {
+          console.log(`✅ Property ${id} found in Redis cache`);
+        }
+      }
+
+      // Fallback to API if not in cache
+      if (!property) {
+        cacheSource = 'api';
+        console.log(`⚠️ Property ${id} not in Redis cache, fetching from API`);
+
       const response = await client.getPropertyAdvertising({
         propref: id,
         noimage: parseInt(noimage as string)
@@ -317,10 +358,17 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
           message: `Property with ID ${id} not found`,
           timestamp: new Date().toISOString()
         });
+        }
+
+        property = response.data[0];
+        
+        // Cache in Redis for 2 hours
+        if (config.redis.enabled && redisCache.isReady()) {
+          await redisCache.set(RedisCacheKeys.property(id), property, 7200);
+        }
       }
 
       // Process the property data to add images object
-      const property = response.data[0];
       const processedProperty = {
         ...property,
         images: processPropertyImages(property)
@@ -329,7 +377,7 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       const apiResponse: ApiResponse<PropertyAdvertising> = {
         success: true,
         data: processedProperty,
-        message: 'Property found',
+        message: `Property found (source: ${cacheSource})`,
         timestamp: new Date().toISOString()
       };
 

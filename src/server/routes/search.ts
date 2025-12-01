@@ -25,7 +25,7 @@ export default function searchRoutes(client: RentmanApiClient): Router {
         maxPrice, 
         featured,
         page = 1, 
-        limit = 25 
+        limit = 12 
       } = req.query;
 
       // Build search parameters

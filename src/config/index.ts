@@ -39,6 +39,18 @@ export interface AppConfig {
     ttl: number;
     maxSize: number;
   };
+  redis: {
+    host: string;
+    port: number;
+    password?: string;
+    db: number;
+    enabled: boolean;
+  };
+  sync: {
+    enabled: boolean;
+    interval: string;
+    onStartup: boolean;
+  };
   cloudinary: {
     cloudName: string;
     apiKey: string;
@@ -82,6 +94,18 @@ const config: AppConfig = {
   cache: {
     ttl: parseInt(process.env.CACHE_TTL || '3600', 10), // 1 hour
     maxSize: parseInt(process.env.CACHE_MAX_SIZE || '100', 10) // 100 items
+  },
+  redis: {
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || '6379', 10),
+    password: process.env.REDIS_PASSWORD || undefined,
+    db: parseInt(process.env.REDIS_DB || '0', 10),
+    enabled: process.env.REDIS_ENABLED === 'true'
+  },
+  sync: {
+    enabled: process.env.SYNC_ENABLED === 'true',
+    interval: process.env.SYNC_INTERVAL || '0 * * * *', // Every hour at :00
+    onStartup: process.env.SYNC_ON_STARTUP !== 'false' // Default true
   },
   cloudinary: {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
