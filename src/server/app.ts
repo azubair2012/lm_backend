@@ -40,6 +40,7 @@ import propertyRoutes from './routes/properties';
 import mediaRoutes from './routes/media';
 import searchRoutes from './routes/search';
 import blogRoutes from './routes/blogs';
+import contentRoutes from './routes/content';
 
 export class RentmanServer {
   private app: express.Application;
@@ -133,6 +134,7 @@ export class RentmanServer {
     this.app.use('/api/media', mediaRoutes(this.client));
     this.app.use('/api/search', searchRoutes(this.client));
     this.app.use('/api/blogs', blogRoutes());
+    this.app.use('/api/content', contentRoutes());
 
     // Image serving route with dynamic Cloudinary fetching
     this.app.get('/api/images/:filename', asyncHandler(async (req: any, res: any) => {
@@ -337,6 +339,7 @@ export class RentmanServer {
           media: '/api/media',
           search: '/api/search',
           blogs: '/api/blogs',
+          content: '/api/content',
           images: '/api/images'
         },
         documentation: {

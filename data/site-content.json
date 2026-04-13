@@ -1,0 +1,41 @@
+[
+  {
+    "key": "home.concierge.description",
+    "label": "Home Concierge Description",
+    "group": "home",
+    "type": "textarea",
+    "value": "London Move's concierge service transforms properties to maximize their market value. Our team of experts handles everything from minor repairs to complete renovations, staging, and bespoke marketing strategies, ensuring your home launches with impact.",
+    "isPublished": true,
+    "updatedAt": "2026-04-07T10:36:09.913Z",
+    "updatedBy": "admin"
+  },
+  {
+    "key": "home.about.description",
+    "label": "Home About Description",
+    "group": "home",
+    "type": "textarea",
+    "value": "At London Move, we appreciate that sales, lettings and property management are specialist disciplines in their own right. That's why we've established fully independent departments run by dedicated experts. Each team is empowered to deliver tailored strategies, transparent communication and impressive results.\n\nWhether you're planning to sell, letting for the first time or scaling a portfolio, we align our advice to your goals. Expect clear timelines, thoughtful presentation and meticulous care at every stage of the journey.",
+    "isPublished": true,
+    "updatedAt": "2026-04-07T10:44:32.786Z",
+    "updatedBy": "admin"
+  },
+  {
+    "key": "services.buildingMaintenance.body",
+    "label": "Services Building & Maintenance Body",
+    "group": "services",
+    "type": "richtext",
+    "value": "We work with a carefully selected panel of qualified, industry-approved tradespeople, offering a wide range of skilled services. Whether you need a GAS SAFE registered engineer or a NICEIC certified electrician, every contractor we recommend is fully vetted, holds public liability insurance, and complies with HHSRS standards.\n\nFrom complete refurbishments and property makeovers to routine maintenance and small handyman tasks, no job is too big or too small. Our trusted contractors approach every project with professionalism and efficiency, ensuring high-quality workmanship every time.",
+    "isPublished": true,
+    "updatedAt": "2026-04-07T00:00:00.000Z"
+  },
+  {
+    "key": "services.page.body",
+    "label": "Services Page Body",
+    "group": "services",
+    "type": "richtext",
+    "value": "<h2>Building &amp; Maintenance</h2><p>We work with a carefully selected panel of qualified, industry-approved tradespeople, offering a wide range of skilled services. Whether you need a GAS SAFE registered engineer or a NICEIC certified electrician, every contractor we recommend is fully vetted, holds public liability insurance, and complies with HHSRS standards.</p><p>From complete refurbishments and property makeovers to routine maintenance and small handyman tasks, no job is too big or too small. Our trusted contractors approach every project with professionalism and efficiency, ensuring high-quality workmanship every time.</p><h2>Tenant Permitted Payments</h2><h3>Tenant Payments Summary:</h3><ul><li><p>One month’s rent in advance (unless otherwise agreed).</p></li><li><p>Five weeks’ rent as a tenancy deposit (\"the Deposit\").</p></li><li><p>One week’s holding deposit paid to London Move does not guarantee the tenancy.</p></li></ul><h3>Holding Deposit Conditions:</h3><p>London Move may keep the holding deposit if:</p><ul><li><p>False or misleading information is provided.</p></li><li><p>The applicant fails the right to rent check.</p></li><li><p>The applicant withdraws from the tenancy.</p></li><li><p>The applicant does not respond within 24 hours when requested for information.</p></li></ul><p>If retained, London Move will notify applicants within 7 days with reasons. Applicants must complete referencing within 24 hours of notification. After satisfactory references, the Tenancy Agreement will be issued within 48 hours. All tenants must sign the agreement together at the London Move office before the tenancy starts.</p><p>The holding deposit is not protected under the Housing Act 2008 deposit schemes.</p><h2>Our Fees</h2><h3>Landlord Fees:</h3><ul><li><p>Letting Only – 9.6% inc VAT.</p></li><li><p>Letting &amp; Rent Collection – 12% inc VAT.</p></li><li><p>Rent Collection and Property Management – 6% inc VAT.</p></li><li><p>Letting, Rent Collection and Property Management – 15.6% inc VAT.</p></li></ul><p></p>",
+    "isPublished": true,
+    "updatedAt": "2026-04-07T11:00:36.157Z",
+    "updatedBy": "admin"
+  }
+]
