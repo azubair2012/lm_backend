@@ -7,6 +7,7 @@ export interface PropertyAdvertising {
   propref: string;
   displayaddress: string;
   displayprice: string;
+  saleprice?: string;
   rentmonth: string;
   rentorbuy: string;
   number: string;

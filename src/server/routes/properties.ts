@@ -136,6 +136,7 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
         beds, 
         minPrice, 
         maxPrice, 
+        minSalePrice,
         featured,
         page = 1, 
         limit = 12 
@@ -205,6 +206,14 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
           if (minPrice && typeof minPrice === 'string' && minPrice !== '' && price < parseFloat(minPrice)) return false;
           if (maxPrice && typeof maxPrice === 'string' && maxPrice !== '' && price > parseFloat(maxPrice)) return false;
           return true;
+        });
+      }
+
+      if (minSalePrice && typeof minSalePrice === 'string' && minSalePrice !== '') {
+        const minSalePriceValue = parseFloat(minSalePrice);
+        filteredProperties = filteredProperties.filter((prop: any) => {
+          const salePrice = parseFloat(prop.saleprice ?? '');
+          return Number.isFinite(salePrice) && salePrice >= minSalePriceValue;
         });
       }
 
