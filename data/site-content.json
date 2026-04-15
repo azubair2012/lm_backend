@@ -37,5 +37,15 @@
     "isPublished": true,
     "updatedAt": "2026-04-07T11:00:36.157Z",
     "updatedBy": "admin"
+  },
+  {
+    "key": "about.page.body",
+    "label": "About Page Body",
+    "group": "about",
+    "type": "richtext",
+    "value": "<p>It is widely accepted amongst those involved in the residential property industry that the sale, letting and management of property are all independent fields of expertise. All too commonly vendors, landlords and tenants find themselves pigeon-holed within a rigid procedure which ultimately stifles both the spirit, ethos and results achieved by their real estate advisors.</p><p>Dynamic and innovative, London Move provides a spectrum of solutions across the property sector. Our team is apt in multi-disciplinary activities that represent clients both in London and across the United Kingdom. We pride ourselves on building long-standing relationships based on trust, transparency and tangible performance, delivering a bespoke service tailored to every client's goals.</p><p>All staff and associates undergo ongoing training and development to ensure consistent quality and care. London Move is hosted by a team of property specialists each with accountability of their sales or lettings portfolios, ensuring dedicated focus and expertise at every step of your property journey.</p>",
+    "isPublished": true,
+    "updatedAt": "2026-04-15T00:00:00.000Z",
+    "updatedBy": "admin"
   }
 ]
