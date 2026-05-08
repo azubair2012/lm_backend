@@ -65,6 +65,61 @@ function processPropertyImages(property: any) {
   return images;
 }
 
+function extractEpcAndTaxBand(property: any): { epcrating: number | null; taxband: string | null } {
+  const gradeToOrdinal: { [key: string]: number } = {
+    A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7
+  };
+  const scoreToGrade = (score: number): string | null => {
+    if (score >= 92) return 'A';
+    if (score >= 81) return 'B';
+    if (score >= 69) return 'C';
+    if (score >= 55) return 'D';
+    if (score >= 39) return 'E';
+    if (score >= 21) return 'F';
+    if (score >= 1) return 'G';
+    return null;
+  };
+
+  // Prefer explicit grade in bullets if present (format: "Energy Rating : C")
+  let grade: string | null = null;
+  if (property.bullets) {
+    const energyMatch = property.bullets.match(/Energy Rating\s*:\s*([A-G])/i);
+    if (energyMatch) {
+      grade = energyMatch[1].toUpperCase();
+    }
+  }
+
+  // Otherwise normalize existing API value (can be letter or numeric score)
+  if (!grade && property.epcrating !== null && property.epcrating !== undefined && property.epcrating !== '') {
+    if (typeof property.epcrating === 'string') {
+      const maybeGrade = property.epcrating.trim().toUpperCase();
+      if (gradeToOrdinal[maybeGrade]) {
+        grade = maybeGrade;
+      } else {
+        const numeric = Number(property.epcrating);
+        if (Number.isFinite(numeric)) {
+          grade = scoreToGrade(numeric);
+        }
+      }
+    } else if (typeof property.epcrating === 'number') {
+      grade = scoreToGrade(property.epcrating);
+    }
+  }
+
+  const epcrating = grade ? (gradeToOrdinal[grade] || null) : null;
+
+  // Extract council tax band from bullets field (format: "Council Tax Band B")
+  let taxband = property.taxband || null;
+  if (!taxband && property.bullets) {
+    const taxMatch = property.bullets.match(/Council Tax Band\s+([A-H])/i);
+    if (taxMatch) {
+      taxband = taxMatch[1];
+    }
+  }
+
+  return { epcrating, taxband };
+}
+
 export default function propertyRoutes(client: RentmanApiClient): Router {
   const router = Router();
 
@@ -74,13 +129,13 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
    */
   router.get('/', async (req: Request, res: Response) => {
     try {
-      const { 
-        page = 1, 
-        limit = 25, 
-        featured, 
-        area, 
+      const {
+        page = 1,
+        limit = 25,
+        featured,
+        area,
         rob,
-        noimage = 1 
+        noimage = 1
       } = req.query;
 
       const params = {
@@ -93,36 +148,19 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       };
 
       const response = await client.getPropertyAdvertising(params);
-   
+
+      // Debug: log first property
+      if (response.data && response.data.length > 0) {
+        console.log('🔍 Raw API eprating:', response.data[0].epcrating);
+        console.log('🔍 Raw API taxband:', response.data[0].taxband);
+        console.log('🔍 Raw API bullets:', response.data[0].bullets);
+      }
+
       // Process each property to add images object and extract EPC/tax ratings from bullets
       const processedProperties = response.data.map((property: any) => {
-        // Extract energy rating from API or bullets field
-        let epcrating = property.epcrating || null;
+        const { epcrating, taxband } = extractEpcAndTaxBand(property);
 
-        // Convert string to number if needed
-        if (epcrating && typeof epcrating === 'string') {
-          const numRating = parseInt(epcrating);
-          if (!isNaN(numRating)) {
-            epcrating = numRating;
-          }
-        }
-
-        // Fallback: extract from bullets field if API doesn't have eprating
-        if (!epcrating && property.bullets) {
-          const energyMatch = property.bullets.match(/Energy Rating\s*:\s*(\d+)/i);
-          if (energyMatch) {
-            epcrating = parseInt(energyMatch[1]);
-          }
-        }
-
-        // Extract council tax band from bullets field
-        let taxband = property.taxband || null;
-        if (!taxband && property.bullets) {
-          const taxMatch = property.bullets.match(/Council Tax Band\s+([A-H])/i);
-          if (taxMatch) {
-            taxband = taxMatch[1];
-          }
-        }
+        console.log('🔍 Processing property', property.propref, 'epcrating:', epcrating, 'taxband:', taxband);
 
         return {
           ...property,
@@ -134,7 +172,7 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
           images: processPropertyImages(property)
         };
       });
-      
+
       const apiResponse: ApiResponse<PropertyAdvertising[]> = {
         success: true,
         data: processedProperties,
@@ -143,7 +181,7 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       };
 
       res.json(apiResponse);
-      
+
     } catch (error) {
       console.error('Error fetching properties:', error);
       res.status(500).json({
@@ -162,17 +200,17 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
   router.get('/search', async (req: Request, res: Response) => {
     console.log('🔍 Search route called with query:', req.query);
     try {
-      const { 
-        q, 
-        area, 
-        type, 
-        beds, 
-        minPrice, 
-        maxPrice, 
+      const {
+        q,
+        area,
+        type,
+        beds,
+        minPrice,
+        maxPrice,
         minSalePrice,
         featured,
-        page = 1, 
-        limit = 12 
+        page = 1,
+        limit = 12
       } = req.query;
 
       // Try to get properties from Redis cache first
@@ -181,7 +219,7 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
 
       if (config.redis.enabled && redisCache.isReady()) {
         const cachedProperties = await redisCache.get<PropertyAdvertising[]>(RedisCacheKeys.allProperties());
-        
+
         if (cachedProperties && cachedProperties.length > 0) {
           allProperties = cachedProperties;
           console.log(`✅ Using ${cachedProperties.length} properties from Redis cache`);
@@ -192,7 +230,7 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       if (allProperties.length === 0) {
         cacheSource = 'api';
         console.log('⚠️ Redis cache miss or disabled, fetching from Rentman API');
-        
+
       const params: any = {
         noimage: 1,
         limit: 1000 // Fetch all properties
@@ -204,19 +242,19 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
 
       const response = await client.getPropertyAdvertising(params);
         allProperties = Array.isArray(response.data) ? response.data : [response.data];
-        
+
         // Cache in Redis for 15 minutes as emergency backup
         if (config.redis.enabled && redisCache.isReady()) {
           await redisCache.set(RedisCacheKeys.allProperties(), allProperties, 900);
         }
       }
-      
+
       // Apply client-side filters
       let filteredProperties = allProperties;
 
       if (q && typeof q === 'string' && q.trim() !== '') {
         const query = q.toLowerCase();
-        filteredProperties = filteredProperties.filter(prop => 
+        filteredProperties = filteredProperties.filter(prop =>
           prop.displayaddress?.toLowerCase().includes(query) ||
           prop.address3?.toLowerCase().includes(query) ||
           prop.area?.toLowerCase().includes(query) ||
@@ -236,86 +274,69 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       if ((minPrice && typeof minPrice === 'string' && minPrice !== '') || (maxPrice && typeof maxPrice === 'string' && maxPrice !== '')) {
         filteredProperties = filteredProperties.filter(prop => {
           const price = parseFloat(prop.rentmonth);
-          if (minPrice && typeof minPrice === 'string' && minPrice !== '' && price < parseFloat(minPrice)) return false;
-          if (maxPrice && typeof maxPrice === 'string' && maxPrice !== '' && price > parseFloat(maxPrice)) return false;
-          return true;
+          const min = minPrice && typeof minPrice === 'string' ? parseFloat(minPrice) : 0;
+          const max = maxPrice && typeof maxPrice === 'string' ? parseFloat(maxPrice) : Infinity;
+          return price >= min && price <= max;
         });
       }
 
       if (minSalePrice && typeof minSalePrice === 'string' && minSalePrice !== '') {
-        const minSalePriceValue = parseFloat(minSalePrice);
-        filteredProperties = filteredProperties.filter((prop: any) => {
-          const salePrice = parseFloat(prop.saleprice ?? '');
-          return Number.isFinite(salePrice) && salePrice >= minSalePriceValue;
+        filteredProperties = filteredProperties.filter(prop => {
+          const salePrice = prop.saleprice ? parseFloat(prop.saleprice) : 0;
+          const min = parseFloat(minSalePrice);
+          return salePrice >= min;
         });
       }
 
-      const total = filteredProperties.length;
-      const requestedLimit = parseInt(limit as string);
-      const totalPages = Math.ceil(total / requestedLimit);
-      const currentPage = parseInt(page as string);
+      if (featured === 'true') {
+        filteredProperties = filteredProperties.filter(prop => (prop as any).featured === 1);
+      }
 
-      console.log('📊 Search pagination:', { 
-        total, 
-        limit: requestedLimit, 
-        totalPages, 
-        currentPage,
-        hasNext: currentPage < totalPages
-      });
+      // Pagination
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      const startIndex = (pageNum - 1) * limitNum;
+      const endIndex = startIndex + limitNum;
 
-      // Apply pagination by slicing the filtered array
-      const startIndex = (currentPage - 1) * requestedLimit;
-      const endIndex = startIndex + requestedLimit;
       const paginatedProperties = filteredProperties.slice(startIndex, endIndex);
 
-      // Process each property to add images object
-      // Explicitly preserve geolocation field
-      const processedProperties = paginatedProperties.map((property: any) => ({
-        ...property,
-        geolocation: property.geolocation || '',
-        images: processPropertyImages(property)
-      }));
+      // Extract unique areas and types
+      const areas = [...new Set(allProperties.map(prop => prop.area).filter(Boolean))];
+      const types = [...new Set(allProperties.map(prop => prop.TYPE).filter(Boolean))];
 
-      const searchResponse: ApiResponse<{
-        properties: PropertyAdvertising[];
-        pagination: {
-          page: number;
-          limit: number;
-          total: number;
-          totalPages: number;
-          hasNext: boolean;
-          hasPrev: boolean;
-        };
-        filters: {
-          areas: string[];
-          types: string[];
-          priceRange: { min: number; max: number };
-        };
-      }> = {
-        success: true,
-        data: {
-          properties: processedProperties,
-          pagination: {
-            page: currentPage,
-            limit: parseInt(limit as string),
-            total: total,
-            totalPages,
-            hasNext: currentPage < totalPages,
-            hasPrev: currentPage > 1
-          },
-          filters: {
-            areas: [...new Set(processedProperties.map(p => p.area))],
-            types: [...new Set(processedProperties.map(p => p.TYPE))],
-            priceRange: {
-              min: Math.min(...processedProperties.map(p => parseFloat(p.rentmonth))),
-              max: Math.max(...processedProperties.map(p => parseFloat(p.rentmonth)))
-            }
-          }
-        },
-        message: `Found ${processedProperties.length} properties matching search criteria (source: ${cacheSource})`,
-        timestamp: new Date().toISOString()
+      // Calculate price range
+      const prices = allProperties.map(prop => parseFloat(prop.rentmonth)).filter(price => !isNaN(price));
+      const priceRange = {
+        min: prices.length > 0 ? Math.min(...prices) : 0,
+        max: prices.length > 0 ? Math.max(...prices) : 0
       };
-      res.json(searchResponse);
+
+      const searchData = {
+        properties: paginatedProperties.map((property: any) => ({
+          ...property,
+          images: processPropertyImages(property)
+        })),
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total: filteredProperties.length,
+          totalPages: Math.ceil(filteredProperties.length / limitNum),
+          hasNext: endIndex < filteredProperties.length,
+          hasPrev: pageNum > 1
+        },
+        filters: {
+          areas,
+          types,
+          priceRange
+        }
+      };
+
+      res.json({
+        success: true,
+        data: searchData,
+        message: `Found ${paginatedProperties.length} properties matching search criteria (source: ${cacheSource})`,
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
       console.error('Error searching properties:', error);
       res.status(500).json({
@@ -340,7 +361,7 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       const { limit = 10 } = req.query;
 
       const properties = await client.getFeaturedProperties(parseInt(limit as string));
-      
+
       // Process each property to add images object
       // Explicitly preserve geolocation field
       const processedProperties = properties.map((property: any) => ({
@@ -348,7 +369,7 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
         geolocation: property.geolocation || '',
         images: processPropertyImages(property)
       }));
-      
+
       const apiResponse: ApiResponse<PropertyAdvertising[]> = {
         success: true,
         data: processedProperties,
@@ -370,18 +391,17 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
 
   /**
    * GET /api/properties/:id
-   * Get a specific property by ID
+   * Get single property by ID
    */
-  router.get('/:id', async (Request, res: Response) => {
-    console.log('🔍 ID route called with id:', Request.params.id);
+  router.get('/:id', async (req: Request, res: Response) => {
     try {
-      const { id } = Request.params;
-      const { noimage = 1 } = Request.query;
+      const { id } = req.params;
+      const { noimage = 1 } = req.query;
 
       let property: PropertyAdvertising | null = null;
-      let cacheSource = 'redis';
+      let cacheSource = 'cache';
 
-      // Try Redis cache first
+      // Try to get property from Redis cache first
       if (config.redis.enabled && redisCache.isReady()) {
         property = await redisCache.get<PropertyAdvertising>(RedisCacheKeys.property(id));
         if (property) {
@@ -406,10 +426,10 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
           message: `Property with ID ${id} not found`,
           timestamp: new Date().toISOString()
         });
-        }
+      }
 
         property = response.data[0];
-        
+
         // Cache in Redis for 2 hours
         if (config.redis.enabled && redisCache.isReady()) {
           await redisCache.set(RedisCacheKeys.property(id), property, 7200);
@@ -417,32 +437,25 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       }
 
       // Process the property data to add images object
-      // Explicitly preserve geolocation field to ensure it's not lost
-      const processedProperty: any = {
+      const { epcrating, taxband } = extractEpcAndTaxBand(property);
+      const processedProperty = {
         ...property,
-        geolocation: (property as any).geolocation || property.geolocation || '',
+        epcrating,
+        taxband,
+        geolocation: property.geolocation || '',
         images: processPropertyImages(property)
       };
 
-      // Debug logging for geolocation
-      console.log('🔍 Property geolocation debug:', {
-        propref: property.propref,
-        hasGeolocation: 'geolocation' in property,
-        geolocation: (property as any).geolocation,
-        geolocationType: typeof (property as any).geolocation,
-        processedGeolocation: processedProperty.geolocation,
-      });
-
       const apiResponse: ApiResponse<PropertyAdvertising> = {
         success: true,
-        data: processedProperty,
+        data: processedProperty as any,
         message: `Property found (source: ${cacheSource})`,
         timestamp: new Date().toISOString()
       };
 
       res.json(apiResponse);
     } catch (error) {
-      console.error(`Error fetching property ${Request.params.id}:`, error);
+      console.error('Error fetching property:', error);
       res.status(500).json({
         success: false,
         data: null,
@@ -454,83 +467,49 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
 
   /**
    * GET /api/properties/:id/gallery
-   * Get gallery images for a specific property
+   * Get property gallery images
    */
   router.get('/:id/gallery', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
 
-      // Fetch media for this property
-      const mediaResponse = await client.getPropertyMedia({ propref: id });
-      
-      if (mediaResponse.data.length === 0) {
-        return res.json({
-          success: true,
-          data: [],
-          message: `No gallery images found for property ${id}`,
+      // Try to get property from Redis cache first
+      let property = await redisCache.get<PropertyAdvertising>(RedisCacheKeys.property(id));
+
+      // Fallback to API if not in cache
+      if (!property) {
+        const response = await client.getPropertyAdvertising({
+          propref: id,
+          noimage: 0 // We need images for gallery
+        });
+        property = response.data[0];
+      }
+
+      if (!property) {
+        return res.status(404).json({
+          success: false,
+          data: null,
+          message: `Property with ID ${id} not found`,
           timestamp: new Date().toISOString()
         });
       }
 
-      // Upload all gallery images to Cloudinary immediately to ensure they're available
-      // This prevents 404s when the frontend requests images by filename
-      console.log(`📤 Uploading ${mediaResponse.data.length} gallery images to Cloudinary for property ${id}...`);
-      
-      const uploadPromises = mediaResponse.data.map(async (media) => {
-        if (!media.base64data) {
-          console.warn(`⚠️ No base64 data for gallery image ${media.filename}`);
-          return { success: false, filename: media.filename, reason: 'No base64 data' };
-        }
+      const images = processPropertyImages(property);
 
-        try {
-          // Upload to Cloudinary with multiple sizes (returns URLs with proper versions)
-          const cloudinaryResults = await cloudinaryService.uploadMultipleSizes(
-            media.base64data,
-            media.filename
-          );
-
-          // Cache the URLs returned from upload (already have correct versions)
-          Object.entries(cloudinaryResults).forEach(([size, url]) => {
-            cache.set(CacheKeys.image(media.filename, size), url, 3600);
-          });
-
-          console.log(`✅ Uploaded and cached gallery image: ${media.filename}`);
-          return { success: true, filename: media.filename };
-        } catch (uploadError) {
-          console.error(`❌ Failed to upload gallery image ${media.filename}:`, uploadError);
-          return { 
-            success: false, 
-            filename: media.filename, 
-            reason: uploadError instanceof Error ? uploadError.message : String(uploadError) 
-          };
-        }
-      });
-
-      // Wait for all uploads to complete (using allSettled to handle errors gracefully)
-      const uploadResults = await Promise.allSettled(uploadPromises);
-      const successfulUploads = uploadResults.filter(r => r.status === 'fulfilled' && r.value?.success).length;
-      const failedUploads = uploadResults.length - successfulUploads;
-      
-      if (failedUploads > 0) {
-        console.warn(`⚠️ Failed to upload ${failedUploads} out of ${uploadResults.length} gallery images for property ${id}`);
-      } else {
-        console.log(`✅ Successfully uploaded all ${successfulUploads} gallery images for property ${id}`);
-      }
-
-      const apiResponse: ApiResponse<PropertyMedia[]> = {
+      const apiResponse: ApiResponse<any> = {
         success: true,
-        data: mediaResponse.data,
-        message: `Found ${mediaResponse.data.length} gallery images for property ${id}`,
+        data: images,
+        message: `Found gallery images for property ${id}`,
         timestamp: new Date().toISOString()
       };
 
       res.json(apiResponse);
     } catch (error) {
-      console.error(`Error fetching gallery for property ${req.params.id}:`, error);
+      console.error('Error fetching property gallery:', error);
       res.status(500).json({
         success: false,
-        data: [],
-        message: 'Failed to fetch gallery images',
+        data: null,
+        message: 'Failed to fetch property gallery',
         timestamp: new Date().toISOString()
       });
     }
