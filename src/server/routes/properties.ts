@@ -93,14 +93,47 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       };
 
       const response = await client.getPropertyAdvertising(params);
-      
-      // Process each property to add images object
-      // Explicitly preserve geolocation field
-      const processedProperties = response.data.map((property: any) => ({
-        ...property,
-        geolocation: property.geolocation || '',
-        images: processPropertyImages(property)
-      }));
+   
+      // Process each property to add images object and extract EPC/tax ratings from bullets
+      const processedProperties = response.data.map((property: any) => {
+        // Extract energy rating from API or bullets field
+        let epcrating = property.epcrating || null;
+
+        // Convert string to number if needed
+        if (epcrating && typeof epcrating === 'string') {
+          const numRating = parseInt(epcrating);
+          if (!isNaN(numRating)) {
+            epcrating = numRating;
+          }
+        }
+
+        // Fallback: extract from bullets field if API doesn't have eprating
+        if (!epcrating && property.bullets) {
+          const energyMatch = property.bullets.match(/Energy Rating\s*:\s*(\d+)/i);
+          if (energyMatch) {
+            epcrating = parseInt(energyMatch[1]);
+          }
+        }
+
+        // Extract council tax band from bullets field
+        let taxband = property.taxband || null;
+        if (!taxband && property.bullets) {
+          const taxMatch = property.bullets.match(/Council Tax Band\s+([A-H])/i);
+          if (taxMatch) {
+            taxband = taxMatch[1];
+          }
+        }
+
+        return {
+          ...property,
+          // Map API fields to our interface
+          epcrating: epcrating,
+          taxband: taxband,
+          // Preserve geolocation field
+          geolocation: property.geolocation || '',
+          images: processPropertyImages(property)
+        };
+      });
       
       const apiResponse: ApiResponse<PropertyAdvertising[]> = {
         success: true,

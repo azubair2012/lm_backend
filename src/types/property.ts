@@ -31,6 +31,9 @@ export interface PropertyAdvertising {
   shortlet: string;
   rating: string;
   age: string;
+  taxband: string;
+  epc?: string;
+  epcrating: number | null;
   DESCRIPTION: string;
   comments: string;
   strapline: string;

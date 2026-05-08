@@ -197,7 +197,7 @@ export function formatRating(rating: string | number): string {
  */
 export function formatAge(age: string): string {
   if (!age) return 'Age not specified';
-  
+
   const ageMap: { [key: string]: string } = {
     'brand new': 'Brand New',
     'new': 'New',
@@ -207,8 +207,37 @@ export function formatAge(age: string): string {
     'edwardian': 'Edwardian',
     'contemporary': 'Contemporary'
   };
-  
+
   return ageMap[age.toLowerCase()] || age;
+}
+
+/**
+ * Format tax band
+ */
+export function formatTaxBand(band: string): string {
+  if (!band) return 'Not specified';
+
+  return `Band ${band.toUpperCase()}`;
+}
+
+/**
+ * Format EPC rating
+ */
+export function formatEPC(rating: string): string {
+  if (!rating) return 'Not rated';
+
+  // Convert to number and add appropriate labels
+  const numRating = parseInt(rating);
+  if (isNaN(numRating)) return rating;
+
+  if (numRating >= 92) return 'A';
+  if (numRating >= 81) return 'B';
+  if (numRating >= 69) return 'C';
+  if (numRating >= 55) return 'D';
+  if (numRating >= 39) return 'E';
+  if (numRating >= 21) return 'F';
+  if (numRating >= 1) return 'G';
+  return 'Not rated';
 }
 
 /**
