@@ -120,6 +120,21 @@ function extractEpcAndTaxBand(property: any): { epcrating: number | null; taxban
   return { epcrating, taxband };
 }
 
+/** Rentman propertyadvertising: rentorbuy 1 = to let, 2 = for sale */
+function matchesSearchType(prop: PropertyAdvertising, type: unknown): boolean {
+  if (type == null || type === '') return true;
+  if (typeof type !== 'string') return true;
+  const t = type.toLowerCase();
+  if (t !== 'rent' && t !== 'sale') return true;
+  const rb = String(prop.rentorbuy ?? '').trim();
+  if (t === 'rent') {
+    if (rb !== '1') return false;
+    const rent = parseFloat(String(prop.rentmonth ?? '').trim());
+    return Number.isFinite(rent) && rent > 0;
+  }
+  return rb === '2';
+}
+
 export default function propertyRoutes(client: RentmanApiClient): Router {
   const router = Router();
 
@@ -252,6 +267,12 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       // Apply client-side filters
       let filteredProperties = allProperties;
 
+      if (typeof type === 'string' && (type.toLowerCase() === 'rent' || type.toLowerCase() === 'sale')) {
+        filteredProperties = filteredProperties.filter(prop => matchesSearchType(prop, type));
+      }
+
+      const scopedForFilters = filteredProperties;
+
       if (q && typeof q === 'string' && q.trim() !== '') {
         const query = q.toLowerCase();
         filteredProperties = filteredProperties.filter(prop =>
@@ -300,12 +321,17 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
 
       const paginatedProperties = filteredProperties.slice(startIndex, endIndex);
 
-      // Extract unique areas and types
-      const areas = [...new Set(allProperties.map(prop => prop.area).filter(Boolean))];
-      const types = [...new Set(allProperties.map(prop => prop.TYPE).filter(Boolean))];
+      // Extract unique areas and types (scoped to same rent/sale slice as this search)
+      const areas = [...new Set(scopedForFilters.map(prop => prop.area).filter(Boolean))];
+      const types = [...new Set(scopedForFilters.map(prop => prop.TYPE).filter(Boolean))];
 
-      // Calculate price range
-      const prices = allProperties.map(prop => parseFloat(prop.rentmonth)).filter(price => !isNaN(price));
+      // Calculate price range (sale searches use saleprice; otherwise rentmonth)
+      const prices =
+        typeof type === 'string' && type.toLowerCase() === 'sale'
+          ? scopedForFilters
+              .map(prop => parseFloat(String(prop.saleprice ?? '')))
+              .filter(price => !isNaN(price) && price > 0)
+          : scopedForFilters.map(prop => parseFloat(prop.rentmonth)).filter(price => !isNaN(price));
       const priceRange = {
         min: prices.length > 0 ? Math.min(...prices) : 0,
         max: prices.length > 0 ? Math.max(...prices) : 0
