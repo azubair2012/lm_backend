@@ -23,6 +23,7 @@ if (missingEnvVars.length > 0) {
 async function startServer() {
   try {
     console.log('🚀 Starting Rentman API Client Server...');
+    console.log('RENTMAN_BASE_URL:', process.env.RENTMAN_BASE_URL);
     
     const server = new RentmanServer();
     await server.start();
