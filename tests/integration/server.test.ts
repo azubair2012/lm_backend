@@ -166,9 +166,9 @@ describe('Server Integration Tests', () => {
         .get('/api/health')
         .expect(200);
 
-      expect(response.body).toHaveProperty('success', true);
-      expect(response.body).toHaveProperty('status');
+      expect(response.body).toHaveProperty('status'); // healthy | degraded | unhealthy
       expect(response.body).toHaveProperty('timestamp');
+      expect(response.body).toHaveProperty('checks');
     });
   });
 
@@ -280,7 +280,8 @@ describe('Server Integration Tests', () => {
         .expect(404);
 
       expect(response.body).toHaveProperty('success', false);
-      expect(response.body).toHaveProperty('error', 'Not Found');
+      expect(response.body).toHaveProperty('error', 'NOT_FOUND');
+      expect(response.body.message).toMatch(/not found/i);
     });
 
     test('Invalid parameters should be handled gracefully', async () => {

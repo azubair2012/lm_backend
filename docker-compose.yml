@@ -17,6 +17,11 @@ services:
       - CACHE_TTL=${CACHE_TTL:-3600}
       - CACHE_MAX_SIZE=${CACHE_MAX_SIZE:-100}
       - IMAGE_CDN_URL=${IMAGE_CDN_URL}
+      - REDIS_ENABLED=true
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SYNC_ENABLED=true
+      - SYNC_ON_STARTUP=true
     volumes:
       - ./public/images:/app/public/images
     restart: unless-stopped

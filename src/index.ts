@@ -3,24 +3,8 @@
  * Rentman API Client with REST endpoints
  */
 
+import './loadEnv';
 import { RentmanServer } from './server/app';
-import dotenv from 'dotenv';
-import fs from 'fs';
-import path from 'path';
-
-// Load environment variables
-const dotenvPathFromEnv = process.env.DOTENV_CONFIG_PATH;
-const nodeEnv = process.env.NODE_ENV || 'development';
-
-const candidateEnvFiles = [
-  dotenvPathFromEnv,
-  path.join(process.cwd(), `.env.${nodeEnv}`),
-  path.join(process.cwd(), '.env.development'),
-  path.join(process.cwd(), '.env'),
-].filter(Boolean) as string[];
-
-const envFileToLoad = candidateEnvFiles.find((p) => fs.existsSync(p));
-dotenv.config(envFileToLoad ? { path: envFileToLoad } : undefined);
 
 // Validate required environment variables
 const requiredEnvVars = ['RENTMAN_TOKEN'];
