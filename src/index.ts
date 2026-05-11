@@ -4,6 +4,7 @@
  */
 
 import './loadEnv';
+import { config } from './config';
 import { RentmanServer } from './server/app';
 
 // Validate required environment variables
@@ -24,6 +25,7 @@ async function startServer() {
   try {
     console.log('🚀 Starting Rentman API Client Server...');
     console.log('RENTMAN_BASE_URL:', process.env.RENTMAN_BASE_URL);
+    console.log('Redis enabled:', config.redis.enabled, '| host:', config.redis.host, '| port:', config.redis.port);
     
     const server = new RentmanServer();
     await server.start();

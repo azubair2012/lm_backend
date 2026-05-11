@@ -4,26 +4,79 @@
  */
 
 import Redis from 'ioredis';
+import type { RedisOptions } from 'ioredis';
 import { config } from '../config';
 import { logger } from './logger';
+
+/**
+ * Build ioredis options from REDIS_URL and/or REDIS_HOST.
+ * Accepts REDIS_HOST mistakenly set to a full URL (e.g. redis://red-xxx:6379 from Render).
+ */
+function buildRedisOptions(): RedisOptions {
+  const defaultDb = config.redis?.db ?? 0;
+  let host = config.redis?.host || 'localhost';
+  let port = config.redis?.port || 6379;
+  let password = config.redis?.password || undefined;
+  let db = defaultDb;
+  let tls: RedisOptions['tls'];
+
+  const applyParsedUrl = (raw: string): boolean => {
+    try {
+      const u = new URL(raw);
+      if (u.protocol !== 'redis:' && u.protocol !== 'rediss:') {
+        return false;
+      }
+      host = u.hostname;
+      port = u.port ? parseInt(u.port, 10) : 6379;
+      if (u.password) {
+        password = decodeURIComponent(u.password);
+      }
+      if (u.pathname && u.pathname.length > 1) {
+        const pathDb = parseInt(u.pathname.slice(1), 10);
+        if (!Number.isNaN(pathDb)) {
+          db = pathDb;
+        }
+      }
+      if (u.protocol === 'rediss:') {
+        tls = {};
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const redisUrl = process.env.REDIS_URL?.trim();
+  if (redisUrl) {
+    applyParsedUrl(redisUrl);
+  } else {
+    const h = host.trim();
+    if (h.startsWith('redis://') || h.startsWith('rediss://')) {
+      applyParsedUrl(h);
+    }
+  }
+
+  const opts: RedisOptions = {
+    host,
+    port,
+    password,
+    db,
+    retryStrategy: (times: number) => Math.min(times * 50, 2000),
+    lazyConnect: true,
+    maxRetriesPerRequest: 3
+  };
+  if (tls) {
+    opts.tls = tls;
+  }
+  return opts;
+}
 
 export class RedisCache {
   private client: Redis;
   private isConnected: boolean = false;
 
   constructor() {
-    const redisConfig = {
-      host: config.redis?.host || 'localhost',
-      port: config.redis?.port || 6379,
-      password: config.redis?.password || undefined,
-      db: config.redis?.db || 0,
-      retryStrategy: (times: number) => {
-        const delay = Math.min(times * 50, 2000);
-        return delay;
-      },
-      lazyConnect: true, // Don't connect immediately
-      maxRetriesPerRequest: 3
-    };
+    const redisConfig = buildRedisOptions();
 
     this.client = new Redis(redisConfig);
 
