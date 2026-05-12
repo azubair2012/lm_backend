@@ -65,10 +65,7 @@ function processPropertyImages(property: any) {
   return images;
 }
 
-function extractEpcAndTaxBand(property: any): { epcrating: number | null; taxband: string | null } {
-  const gradeToOrdinal: { [key: string]: number } = {
-    A: 1, B: 2, C: 3, D: 4, E: 5, F: 6, G: 7
-  };
+function extractEpcAndTaxBand(property: any): { epcrating: string | null; taxband: string | null } {
   const scoreToGrade = (score: number): string | null => {
     if (score >= 92) return 'A';
     if (score >= 81) return 'B';
@@ -93,7 +90,7 @@ function extractEpcAndTaxBand(property: any): { epcrating: number | null; taxban
   if (!grade && property.epcrating !== null && property.epcrating !== undefined && property.epcrating !== '') {
     if (typeof property.epcrating === 'string') {
       const maybeGrade = property.epcrating.trim().toUpperCase();
-      if (gradeToOrdinal[maybeGrade]) {
+      if (maybeGrade && 'ABCDEFG'.includes(maybeGrade)) {
         grade = maybeGrade;
       } else {
         const numeric = Number(property.epcrating);
@@ -106,7 +103,7 @@ function extractEpcAndTaxBand(property: any): { epcrating: number | null; taxban
     }
   }
 
-  const epcrating = grade ? (gradeToOrdinal[grade] || null) : null;
+  const epcrating = grade; // letter grade (A-G) or null
 
   // Extract council tax band from bullets field (format: "Council Tax Band B")
   let taxband = property.taxband || null;

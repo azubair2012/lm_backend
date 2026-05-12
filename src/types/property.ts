@@ -33,7 +33,7 @@ export interface PropertyAdvertising {
   age: string;
   taxband: string;
   epc?: string;
-  epcrating: number | null;
+  epcrating: string | null;
   DESCRIPTION: string;
   comments: string;
   strapline: string;
