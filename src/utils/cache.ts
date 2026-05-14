@@ -27,7 +27,7 @@ export class Cache {
    */
   get<T>(key: string): T | null {
     const item = this.cache.get(key);
-    
+
     if (!item) {
       cacheLogger.cacheMiss(key);
       return null;
@@ -70,12 +70,12 @@ export class Cache {
   has(key: string): boolean {
     const item = this.cache.get(key);
     if (!item) return false;
-    
+
     if (Date.now() > item.expires) {
       this.cache.delete(key);
       return false;
     }
-    
+
     return true;
   }
 
@@ -145,25 +145,6 @@ export class Cache {
   }
 
   /**
-   * Clean up expired entries
-   */
-  cleanup(): void {
-    const now = Date.now();
-    let cleaned = 0;
-
-    for (const [key, item] of this.cache.entries()) {
-      if (now > item.expires) {
-        this.cache.delete(key);
-        cleaned++;
-      }
-    }
-
-    if (cleaned > 0) {
-      cacheLogger.debug(`Cleaned up ${cleaned} expired cache entries`);
-    }
-  }
-
-  /**
    * Evict oldest entry when cache is full
    */
   private evictOldest(): void {
@@ -187,42 +168,9 @@ export class Cache {
 // Create default cache instance
 export const cache = new Cache();
 
-// Cache key generators
+// Only keep image cache key - rest unused
 export const CacheKeys = {
-  properties: (params: any) => `properties:${JSON.stringify(params)}`,
-  property: (id: string) => `property:${id}`,
-  media: (propertyId: string) => `media:${propertyId}`,
-  mediaFile: (filename: string) => `mediafile:${filename}`,
-  search: (query: string, params: any) => `search:${query}:${JSON.stringify(params)}`,
-  suggestions: (query: string) => `suggestions:${query}`,
-  image: (filename: string, size: string) => `image:${filename}:${size}`,
-  health: () => 'health'
+  image: (filename: string, size: string) => `image:${filename}:${size}`
 };
 
-// Cache decorator for methods
-export function cached<T extends (...args: any[]) => Promise<any>>(
-  keyGenerator: (...args: Parameters<T>) => string,
-  ttl?: number
-) {
-  return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
-    const originalMethod = descriptor.value;
-
-    descriptor.value = async function (...args: Parameters<T>) {
-      const key = keyGenerator(...args);
-      const cached = cache.get(key);
-
-      if (cached !== null) {
-        return cached;
-      }
-
-      const result = await originalMethod.apply(this, args);
-      cache.set(key, result, ttl);
-      return result;
-    };
-
-    return descriptor;
-  };
-}
-
 export default cache;
-

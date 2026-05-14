@@ -10,7 +10,6 @@ import {
   validateImageFilename,
   sanitizeString,
   isValidEmail,
-  isValidUrl,
   validatePaginationParams,
   validatePropertyRef,
   validatePriceRange
@@ -171,18 +170,6 @@ describe('Validators', () => {
       expect(isValidEmail('invalid-email')).toBe(false);
       expect(isValidEmail('test@')).toBe(false);
       expect(isValidEmail('')).toBe(false);
-    });
-  });
-
-  describe('isValidUrl', () => {
-    test('should validate correct URLs', () => {
-      expect(isValidUrl('https://example.com')).toBe(true);
-      expect(isValidUrl('http://localhost:3000')).toBe(true);
-    });
-
-    test('should reject invalid URLs', () => {
-      expect(isValidUrl('not-a-url')).toBe(false);
-      expect(isValidUrl('')).toBe(false);
     });
   });
 });

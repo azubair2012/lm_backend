@@ -150,24 +150,17 @@ export function validateSearchParams(params: any): {
   return validated;
 }
 
-/**
- * Validate image filename
- */
 export function validateImageFilename(filename: string): boolean {
   if (!filename || typeof filename !== 'string') {
     return false;
   }
 
-  // Check for valid image extensions
   const validExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
   const extension = filename.toLowerCase().substring(filename.lastIndexOf('.'));
-  
+
   return validExtensions.includes(extension);
 }
 
-/**
- * Sanitize string input
- */
 export function sanitizeString(input: string): string {
   if (typeof input !== 'string') {
     return '';
@@ -175,33 +168,15 @@ export function sanitizeString(input: string): string {
 
   return input
     .trim()
-    .replace(/[<>]/g, '') // Remove potential HTML tags
-    .substring(0, 1000); // Limit length
+    .replace(/[<>]/g, '')
+    .substring(0, 1000);
 }
 
-/**
- * Validate email format
- */
 export function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 }
 
-/**
- * Validate URL format
- */
-export function isValidUrl(url: string): boolean {
-  try {
-    new URL(url);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Validate pagination parameters
- */
 export function validatePaginationParams(params: any): {
   page: number;
   limit: number;
@@ -215,21 +190,14 @@ export function validatePaginationParams(params: any): {
   };
 }
 
-/**
- * Validate property reference format
- */
 export function validatePropertyRef(propref: string): boolean {
   if (!propref || typeof propref !== 'string') {
     return false;
   }
 
-  // Property reference should be alphanumeric and reasonable length
   return /^[a-zA-Z0-9_-]{1,50}$/.test(propref.trim());
 }
 
-/**
- * Validate price range
- */
 export function validatePriceRange(minPrice?: number, maxPrice?: number): boolean {
   if (minPrice !== undefined && (isNaN(minPrice) || minPrice < 0)) {
     return false;

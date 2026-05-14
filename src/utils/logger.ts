@@ -175,10 +175,8 @@ class Logger {
 export const logger = new Logger();
 
 // Create specialized loggers
-export const apiLogger = new Logger('RentmanAPI');
 export const serverLogger = new Logger('Server');
 export const cacheLogger = new Logger('Cache');
-export const imageLogger = new Logger('ImageProcessor');
 
 export default logger;
 

@@ -10,6 +10,7 @@ import { cloudinaryService } from '../../utils/cloudinaryService';
 import { config } from '../../config';
 import { cache, CacheKeys } from '../../utils/cache';
 import { redisCache, RedisCacheKeys } from '../../utils/redisCache';
+import { scoreToGrade } from '../../utils/formatters';
 
 /**
  * Process property images from raw photo fields
@@ -66,17 +67,6 @@ function processPropertyImages(property: any) {
 }
 
 function extractEpcAndTaxBand(property: any): { epcrating: string | null; taxband: string | null } {
-  const scoreToGrade = (score: number): string | null => {
-    if (score >= 92) return 'A';
-    if (score >= 81) return 'B';
-    if (score >= 69) return 'C';
-    if (score >= 55) return 'D';
-    if (score >= 39) return 'E';
-    if (score >= 21) return 'F';
-    if (score >= 1) return 'G';
-    return null;
-  };
-
   // Prefer explicit grade in bullets if present (format: "Energy Rating : C")
   let grade: string | null = null;
   if (property.bullets) {

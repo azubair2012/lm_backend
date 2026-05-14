@@ -241,6 +241,20 @@ export function formatEPC(rating: string): string {
 }
 
 /**
+ * Convert EPC score to grade letter
+ */
+export function scoreToGrade(score: number): string | null {
+  if (score >= 92) return 'A';
+  if (score >= 81) return 'B';
+  if (score >= 69) return 'C';
+  if (score >= 55) return 'D';
+  if (score >= 39) return 'E';
+  if (score >= 21) return 'F';
+  if (score >= 1) return 'G';
+  return null;
+}
+
+/**
  * Format image caption
  */
 export function formatImageCaption(caption: string): string {
@@ -275,28 +289,4 @@ export function formatAreaName(area: string): string {
     .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
-}
-
-/**
- * Format property URL
- */
-export function formatPropertyUrl(url: string, propref: string): string {
-  if (url && isValidUrl(url)) {
-    return url;
-  }
-  
-  // Generate default URL if none provided
-  return `${config.rentman.baseUrl}/property/${propref}`;
-}
-
-/**
- * Check if URL is valid
- */
-function isValidUrl(url: string): boolean {
-  try {
-    new URL(url);
-    return true;
-  } catch {
-    return false;
-  }
 }
