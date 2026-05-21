@@ -95,8 +95,8 @@ export function formatStatus(status: string): string {
     'under offer': 'Under Offer',
     'let agreed': 'Let Agreed',
     'sold': 'Sold',
-    'available': 'Available',
-    'let': 'Let'
+    'available': 'To Let',
+    'unavailable': 'Under Offer'
   };
   
   return statusMap[status.toLowerCase()] || status;

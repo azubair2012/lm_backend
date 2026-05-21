@@ -10,7 +10,7 @@ import { cloudinaryService } from '../../utils/cloudinaryService';
 import { config } from '../../config';
 import { cache, CacheKeys } from '../../utils/cache';
 import { redisCache, RedisCacheKeys } from '../../utils/redisCache';
-import { scoreToGrade } from '../../utils/formatters';
+import { scoreToGrade, formatStatus } from '../../utils/formatters';
 
 /**
  * Process property images from raw photo fields
@@ -171,6 +171,8 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
           taxband: taxband,
           // Preserve geolocation field
           geolocation: property.geolocation || '',
+          // Transform STATUS field (Unavailable -> Under Offer)
+          STATUS: formatStatus(property.STATUS),
           images: processPropertyImages(property)
         };
       });
@@ -327,6 +329,7 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       const searchData = {
         properties: paginatedProperties.map((property: any) => ({
           ...property,
+          STATUS: formatStatus(property.STATUS),
           images: processPropertyImages(property)
         })),
         pagination: {
@@ -379,6 +382,7 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
       // Explicitly preserve geolocation field
       const processedProperties = properties.map((property: any) => ({
         ...property,
+        STATUS: formatStatus(property.STATUS),
         geolocation: property.geolocation || '',
         images: processPropertyImages(property)
       }));
@@ -455,6 +459,7 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
         ...property,
         epcrating,
         taxband,
+        STATUS: formatStatus(property.STATUS),
         geolocation: property.geolocation || '',
         images: processPropertyImages(property)
       };
