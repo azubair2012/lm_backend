@@ -302,6 +302,22 @@ export default function propertyRoutes(client: RentmanApiClient): Router {
         filteredProperties = filteredProperties.filter(prop => (prop as any).featured === 1);
       }
 
+      // Sort by price before pagination
+      const sortOrder = (req.query.sortOrder as string) || 'desc';
+      const sortBy = (req.query.sortBy as string) || 'price';
+
+      if (sortBy === 'price') {
+        filteredProperties.sort((a, b) => {
+          const priceA = typeof type === 'string' && type.toLowerCase() === 'sale'
+            ? parseFloat(String(a.saleprice ?? '')) || 0
+            : parseFloat(a.rentmonth) || 0;
+          const priceB = typeof type === 'string' && type.toLowerCase() === 'sale'
+            ? parseFloat(String(b.saleprice ?? '')) || 0
+            : parseFloat(b.rentmonth) || 0;
+          return sortOrder === 'desc' ? priceB - priceA : priceA - priceB;
+        });
+      }
+
       // Pagination
       const pageNum = parseInt(page as string);
       const limitNum = parseInt(limit as string);
